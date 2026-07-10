@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+codespan-reporting = "0.13.1"
+pliron = { version = "0.16.0", path = "../compilers/pliron" }
+pliron-llvm = { version = "0.16.0", path = "../compilers/pliron/pliron-llvm" }
