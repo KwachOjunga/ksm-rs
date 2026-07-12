@@ -33,8 +33,10 @@ use combine::{
     },
     token,
 };
+use pliron::derive::pliron_attr;
 
 // NOTE: Replace this with the repl impl!
+#[pliron_attr(name = "kaleidoscope.binop_kind", format, verifier = "succ")]
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinOp {
     /// Addition `+`
