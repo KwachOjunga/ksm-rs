@@ -6,6 +6,7 @@
 
 #![allow(dead_code)]
 #![allow(unused)]
+// binop_kind_attr
 use crate::ast::BinOp as BinOpKind;
 use awint::bw;
 use pliron::{
@@ -70,3 +71,372 @@ impl ConstantOp {
     }
 }
 // ANCHOR_END: constant_op_new
+
+/// Declares mutable storage for AST declarations (`const name` / `const name = ...`).
+///
+/// The op result is always an LLVM pointer slot, and the declared value type is
+/// carried in the `var_type` attribute.
+// ANCHOR: decl_op_decl
+#[pliron_op(
+    name = "kisumu_lang.decl",
+    format = "attr($var_type, $TypeAttr) ` : ` type($0)",
+    interfaces = [
+        NOpdsInterface<0>,
+        OneResultInterface,
+        NResultsInterface<1>,
+        ResultNOfType<0, PointerType>
+    ],
+    attributes = (var_type: TypeAttr),
+    verifier = "succ",
+)]
+pub struct DeclOp;
+// ANCHOR_END: decl_op_decl
+
+impl DeclOp {
+    /// Creates a new `DeclOp` with the specified variable type.
+    /// The op result is always a pointer slot, and the variable type
+    /// is stored in the `var_type` attribute.
+    pub fn new(ctx: &mut Context, var_ty: TypeHandle) -> Self {
+        let ptr_ty = PointerType::get(ctx, 0).into();
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![ptr_ty],
+            vec![],
+            vec![],
+            0,
+        );
+        let op = DeclOp { op };
+        op.set_attr_var_type(ctx, TypeAttr::new(var_ty));
+        op
+    }
+
+    pub fn variable_type(&self, ctx: &Context) -> TypeHandle {
+        self.get_attr_var_type(ctx)
+            .expect("DeclOp must carry var_type")
+            .get_type(ctx)
+    }
+}
+
+/// Reads from a declared variable slot when the AST references a variable.
+// ANCHOR: load_op_decl
+#[pliron_op(
+    name = "kisumu_lang.load",
+    format = "$0",
+    interfaces = [
+        NOpdsInterface<1>,
+        OneResultInterface,
+        NResultsInterface<1>
+    ],
+    verifier = "succ",
+)]
+pub struct LoadOp;
+// ANCHOR_END: load_op_decl
+
+impl LoadOp {
+    pub fn new(ctx: &mut Context, slot: Value, result_ty: TypeHandle) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![result_ty],
+            vec![slot],
+            vec![],
+            0,
+        );
+        LoadOp { op }
+    }
+
+    pub fn slot(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+}
+
+/// Writes to a declared variable slot for AST assignments (`name = expr`).
+// ANCHOR: store_op_decl
+#[pliron_op(
+    name = "kisumu_lang.store",
+    format = "`*` $0 ` <- ` $1",
+    interfaces = [NOpdsInterface<2>, NResultsInterface<0>],
+    verifier = "succ",
+)]
+pub struct StoreOp;
+// ANCHOR_END: store_op_decl
+
+impl StoreOp {
+    pub fn new(ctx: &mut Context, slot: Value, value: Value) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![],
+            vec![slot, value],
+            vec![],
+            0,
+        );
+        StoreOp { op }
+    }
+
+    pub fn slot(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+
+    pub fn stored_value(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(1)
+    }
+}
+
+/// Lowers all AST binary expressions into one op with a kind attribute.
+// ANCHOR: binop_decl
+#[pliron_op(
+    name = "kisumu_lang.binop",
+    format = "$0 ` `attr($kind, $BinOpKind) ` ` $1 ` : ` type($0)",
+    interfaces = [
+        AtLeastNOpdsInterface<1>,
+        AtLeastNResultsInterface<1>,
+        NOpdsInterface<2>,
+        OneResultInterface,
+        NResultsInterface<1>,
+        SameOperandsType,
+        SameResultsType,
+        SameOperandsAndResultType
+    ],
+    attributes = (kind: BinOpKind),
+    verifier = "succ"
+)]
+pub struct BinOp;
+// ANCHOR_END: binop_decl
+
+// ANCHOR: binop_methods
+impl BinOp {
+    /// Creates a new `BinOp` of the specified kind with the given operands.
+    pub fn new(ctx: &mut Context, kind: BinOpKind, lhs: Value, rhs: Value) -> Self {
+        let result_ty = lhs.get_type(ctx);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![result_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
+        let op = BinOp { op };
+        op.set_attr_kind(ctx, kind);
+        op
+    }
+
+    /// Returns the `BinOpKind` of this `BinOp`.
+    pub fn kind(&self, ctx: &Context) -> BinOpKind {
+        *self
+            .get_attr_kind(ctx)
+            .expect("BinOp must carry kind attribute")
+    }
+
+    /// Returns the left-hand side operand of this `BinOp`.
+    pub fn lhs(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+
+    /// Returns the right-hand side operand of this `BinOp`.
+    pub fn rhs(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(1)
+    }
+}
+// ANCHOR_END: binop_methods
+
+/// Region terminator for structured control-flow ops (`if` / `while`).
+// ANCHOR: yield_op_decl
+#[pliron_op(
+    name = "kisumu_lang.yield",
+    format = "",
+    interfaces = [IsTerminatorInterface, NResultsInterface<0>, NOpdsInterface<0>],
+    verifier = "succ",
+)]
+pub struct YieldOp;
+// ANCHOR_END: yield_op_decl
+
+impl YieldOp {
+    pub fn new(ctx: &mut Context) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![], vec![], vec![], 0);
+        YieldOp { op }
+    }
+}
+
+/// Statement-form conditional with explicit `then` and `else` regions.
+// ANCHOR: if_op_decl
+#[pliron_op(
+    name = "kisumu_lang.if",
+    format = "$0 ` then ` region($0) ` else ` region($1)",
+    interfaces = [
+        NOpdsInterface<1>,
+        NResultsInterface<0>,
+        NRegionsInterface<2>,
+        SingleBlockRegionInterface
+    ],
+    verifier = "succ",
+)]
+pub struct IfOp;
+// ANCHOR_END: if_op_decl
+
+impl IfOp {
+    pub fn new(ctx: &mut Context, cond: Value) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![],
+            vec![cond],
+            vec![],
+            2,
+        );
+        IfOp { op }
+    }
+
+    pub fn condition(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+
+    pub fn then_region(&self, ctx: &Context) -> Ptr<Region> {
+        self.get_operation().deref(ctx).get_region(0)
+    }
+
+    pub fn else_region(&self, ctx: &Context) -> Ptr<Region> {
+        self.get_operation().deref(ctx).get_region(1)
+    }
+}
+
+/// Statement-form loop with one body region.
+// ANCHOR: while_op_decl
+#[pliron_op(
+    name = "kisumu_lang.while",
+    format = "`*`$0 ` do ` region($0)",
+    interfaces = [
+        OperandNOfType<0, PointerType>,
+        NResultsInterface<0>,
+        NRegionsInterface<1>,
+        SingleBlockRegionInterface
+    ],
+    verifier = "succ",
+)]
+pub struct WhileOp;
+// ANCHOR_END: while_op_decl
+
+impl WhileOp {
+    pub fn new(ctx: &mut Context, cond_ptr: Value) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![],
+            vec![cond_ptr],
+            vec![],
+            1,
+        );
+        WhileOp { op }
+    }
+
+    pub fn cond_ptr(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+
+    pub fn body_region(&self, ctx: &Context) -> Ptr<Region> {
+        self.get_operation().deref(ctx).get_region(0)
+    }
+}
+
+/// Terminates a function-like region with a final value.
+// ANCHOR: return_op_decl
+#[pliron_op(
+    name = "kisumu_lang.return",
+    format = "$0",
+    interfaces = [IsTerminatorInterface],
+)]
+pub struct ReturnOp;
+// ANCHOR_END: return_op_decl
+
+impl ReturnOp {
+    pub fn new(ctx: &mut Context, value: Value) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![],
+            vec![value],
+            vec![],
+            0,
+        );
+        ReturnOp { op }
+    }
+
+    pub fn value(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+}
+
+/*
+ANCHOR: return_op_manual_verifier
+*/
+impl Verify for ReturnOp {
+    fn verify(&self, ctx: &Context) -> Result<()>
+    where
+        Self: Sized,
+    {
+        let n_operands = self.get_operation().deref(ctx).get_num_operands();
+        if n_operands != 1 {
+            return verify_err!(
+                self.loc(ctx),
+                "kisumu_lang.return expects exactly 1 operand, found {}",
+                n_operands
+            );
+        }
+        Ok(())
+    }
+}
+// ANCHOR_END: return_op_manual_verifier
+
+// ANCHOR: call_op_decl
+#[pliron_op(
+    name = "kisumu_lang.call",
+    format = "`@`attr($callee, $IdentifierAttr) `(` operands(CharSpace(`,`)) `)` : type($0)",
+    interfaces = [NResultsInterface<1>],
+    attributes = (callee: IdentifierAttr),
+    verifier = "succ",
+)]
+pub struct CallOp;
+// ANCHOR_END: call_op_decl
+
+impl CallOp {
+    pub fn new(
+        ctx: &mut Context,
+        callee: IdentifierAttr,
+        args: Vec<Value>,
+        result_ty: TypeHandle,
+    ) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![result_ty],
+            args,
+            vec![],
+            0,
+        );
+        let op = CallOp { op };
+        op.set_attr_callee(ctx, callee);
+        op
+    }
+}
+
+// ANCHOR: fib_build_pseudocode
+// kisumu_lang pseudocode for the generated function:
+//
+// func main() {
+//   const a = 0;
+//   const b = 1;
+//   const i = 0;
+//   const n = 10;
+//
+//   while i < n {
+//     const tmp = a + b;
+//     a = b;
+//     b = tmp;
+//     i = i + 1;
+//   }
+//
+//   return b;
+// }
+// ANCHOR_END: fib_build_pseudocode
