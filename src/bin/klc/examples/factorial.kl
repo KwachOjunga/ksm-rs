@@ -1,0 +1,14 @@
+func main(n) {
+    const v = factorial(n);
+    return v;
+}
+
+func factorial(n) {
+    const result = 1;
+    const i = n;
+    while i > 0 {
+        result = result * i;
+        i = i - 1;
+    }
+    return result;
+}
