@@ -7,7 +7,7 @@
 #![allow(dead_code)]
 #![allow(unused)]
 // binop_kind_attr
-use crate::ast::BinOp as BinOpKind;
+pub use crate::ast::BinOp as BinOpKind;
 use awint::bw;
 use pliron::{
     builtin::{
