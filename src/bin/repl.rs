@@ -1,10 +1,20 @@
-pub mod ast;
+/*pub mod ast;
 mod dialect;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;
 pub mod repl;
 pub mod token;
+*/
+
+use ::repl::ast;
+use ::repl::dialect;
+use ::repl::interpreter;
+use ::repl::lexer;
+use ::repl::parser;
+use ::repl:: repl;
+use ::repl::token;
+
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
