@@ -6,6 +6,8 @@
 
 #![allow(dead_code)]
 #![allow(unused)]
+use crate::ast::BinOp as BinOpKind;
+use awint::bw;
 use pliron::{
     builtin::{
         attributes::{IdentifierAttr, IntegerAttr, TypeAttr},
@@ -30,3 +32,41 @@ use pliron::{
     verify_err,
 };
 use pliron_llvm::types::PointerType;
+
+/// Materializes literal constants from AST expressions like `Expr::Integer`.
+// ANCHOR: constant_op_decl
+#[pliron_op(
+    name = "kisumu_lang.constant",
+    format = "attr($value, $IntegerAttr) ` : ` type($0)",
+    interfaces = [NOpdsInterface<0>, OneResultInterface, NResultsInterface<1>],
+    attributes = (value: IntegerAttr),
+    verifier = "succ",
+)]
+pub struct ConstantOp;
+// ANCHOR_END: constant_op_decl
+
+// ANCHOR: constant_op_new
+impl ConstantOp {
+    pub fn new_i64(ctx: &mut Context, value: i64) -> Self {
+        let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+        let value_attr = IntegerAttr::new(i64_ty, APInt::from_i64(value, bw(64)));
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![i64_ty.into()],
+            vec![],
+            vec![],
+            0,
+        );
+        let op = ConstantOp { op };
+        op.set_attr_value(ctx, value_attr);
+        op
+    }
+
+    pub fn value_attr(&self, ctx: &Context) -> IntegerAttr {
+        self.get_attr_value(ctx)
+            .expect("ConstantOp must carry a value attribute")
+            .clone()
+    }
+}
+// ANCHOR_END: constant_op_new
