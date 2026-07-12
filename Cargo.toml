@@ -9,10 +9,6 @@ name = "repl"
 [lib]
 name = "repl"
 
-
-#[[bin]]
-#name = "kisumulang"
-
 [dependencies]
 codespan-reporting = "0.13.1"
 pliron = "0.16.0"
