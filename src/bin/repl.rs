@@ -7,13 +7,7 @@ pub mod repl;
 pub mod token;
 */
 
-use ::repl::ast;
-use ::repl::dialect;
-use ::repl::interpreter;
-use ::repl::lexer;
-use ::repl::parser;
 use ::repl:: repl;
-use ::repl::token;
 
 
 fn main() {
