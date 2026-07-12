@@ -1,4 +1,5 @@
 pub mod ast;
+mod dialect;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;
