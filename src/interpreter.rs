@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use crate::ast::{BlockStatement, Expression, Identifier, Program, Statement};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -83,7 +84,9 @@ impl Object {
             Object::String(val) => val.clone(),
             Object::Error(msg) => format!("ERROR: {}", msg),
             Object::ReturnValue(val) => val.inspect(),
-            Object::Function { parameters, body, .. } => {
+            Object::Function {
+                parameters, body, ..
+            } => {
                 let params: Vec<String> = parameters.iter().map(|p| p.value.clone()).collect();
                 format!("func({}) {}", params.join(", "), body)
             }
@@ -145,7 +148,9 @@ impl Interpreter {
                 alternative,
                 ..
             } => self.eval_if_statement(condition, consequence, alternative.as_ref()),
-            Statement::While { condition, body, .. } => self.eval_while_loop(condition, body),
+            Statement::While {
+                condition, body, ..
+            } => self.eval_while_loop(condition, body),
             Statement::For {
                 initializer,
                 condition,
@@ -161,6 +166,10 @@ impl Interpreter {
             Statement::Break { .. } => Object::Break,
             Statement::Continue { .. } => Object::Continue,
             Statement::Block(block) => self.eval_block_statement(block),
+            // this catches whatever we have added as part of our statement and panics
+            _ => unimplemented!(
+                "Yeah!, we can't evaluate whatever statement you are trying to evaluate yet"
+            ),
         }
     }
 
@@ -308,10 +317,7 @@ impl Interpreter {
             ">" => Object::Boolean(left > right),
             "==" => Object::Boolean(left == right),
             "!=" => Object::Boolean(left != right),
-            _ => Object::Error(format!(
-                "unknown operator: INTEGER {} INTEGER",
-                operator
-            )),
+            _ => Object::Error(format!("unknown operator: INTEGER {} INTEGER", operator)),
         }
     }
 
@@ -714,14 +720,8 @@ mod tests {
     #[test]
     fn test_while_loops() {
         let tests = vec![
-            (
-                "const x = 0; while (false) { const x = 1; } x",
-                0,
-            ),
-            (
-                "while (false) { const x = 1; } 5",
-                5,
-            ),
+            ("const x = 0; while (false) { const x = 1; } x", 0),
+            ("while (false) { const x = 1; } 5", 5),
         ];
 
         for (input, expected) in tests {
@@ -730,14 +730,13 @@ mod tests {
         }
     }
 
+    // This is a stub
     #[test]
     fn test_for_loops() {
-        let tests = vec![
-            (
-                "const x = 0; for (const i = 0; i < 5; const i = i + 1) { const x = x + i; } 5",
-                5,
-            ),
-        ];
+        let tests = vec![(
+            "const x = 0; for (const i = 0; i < 5; const i = i + 1) { const x = x + i; } 5;",
+            5,
+        )];
 
         for (input, expected) in tests {
             let evaluated = test_eval(input);
@@ -745,17 +744,12 @@ mod tests {
         }
     }
 
+    //This is a stub!!!
     #[test]
     fn test_break_and_continue() {
         let tests = vec![
-            (
-                "const x = 0; while (true) { break; } x",
-                0,
-            ),
-            (
-                "while (true) { break; } 5",
-                5,
-            ),
+            ("const x = 0; while (true) { break; } x", 0),
+            ("while (true) { break; } 5", 5),
         ];
 
         for (input, expected) in tests {
@@ -767,14 +761,8 @@ mod tests {
     #[test]
     fn test_block_statements() {
         let tests = vec![
-            (
-                "const x = 10; { const y = 20; y } x",
-                10,
-            ),
-            (
-                "const x = 10; { const y = 20; const z = x + y; z } x",
-                10,
-            ),
+            ("const x = 10; { const y = 20; y } x", 10),
+            ("const x = 10; { const y = 20; const z = x + y; z } x", 10),
         ];
 
         for (input, expected) in tests {
@@ -790,10 +778,7 @@ mod tests {
                 "const x = 0; if (true) { if (true) { const x = 10; } } x",
                 0,
             ),
-            (
-                "if (true) { if (true) { 10; } }",
-                10,
-            ),
+            ("if (true) { if (true) { 10; } }", 10),
         ];
 
         for (input, expected) in tests {
@@ -807,7 +792,9 @@ mod tests {
         let input = "const fn = func(x) { x + 2; }; fn";
         let evaluated = test_eval(input);
         match evaluated {
-            Object::Function { parameters, body, .. } => {
+            Object::Function {
+                parameters, body, ..
+            } => {
                 assert_eq!(parameters.len(), 1);
                 assert_eq!(parameters[0].value, "x");
                 assert_eq!(body.to_string(), "(x + 2)");
@@ -822,7 +809,10 @@ mod tests {
             ("const identity = func(x) { x; }; identity(5);", 5),
             ("const double = func(x) { x * 2; }; double(5);", 10),
             ("const add = func(x, y) { x + y; }; add(5, 5);", 10),
-            ("const add = func(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            (
+                "const add = func(x, y) { x + y; }; add(5 + 5, add(5, 5));",
+                20,
+            ),
             ("const fn = func(x) { x; }; fn(5);", 5),
         ];
 
@@ -868,10 +858,7 @@ mod tests {
             ("return 10; 9;", 10),
             ("return 2 * 5; 9;", 10),
             ("9; return 2 * 5; 9;", 10),
-            (
-                "if (10 > 1) { if (10 > 1) { return 10; } return 1; }",
-                10,
-            ),
+            ("if (10 > 1) { if (10 > 1) { return 10; } return 1; }", 10),
         ];
 
         for (input, expected) in tests {
@@ -897,8 +884,14 @@ mod tests {
     fn test_function_error_handling() {
         let tests = vec![
             ("5(5);", "not a function: INTEGER"),
-            ("const add = func(x, y) { x + y; }; add(5);", "wrong number of arguments. got=1, want=2"),
-            ("const add = func(x, y) { x + y; }; add(5, 5, 5);", "wrong number of arguments. got=3, want=2"),
+            (
+                "const add = func(x, y) { x + y; }; add(5);",
+                "wrong number of arguments. got=1, want=2",
+            ),
+            (
+                "const add = func(x, y) { x + y; }; add(5, 5, 5);",
+                "wrong number of arguments. got=3, want=2",
+            ),
         ];
 
         for (input, expected) in tests {

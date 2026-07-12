@@ -2,6 +2,7 @@ use crate::ast::{BlockStatement, Expression, Identifier, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::{Precedence, Token, TokenType};
 
+// the current parser implemntation eliminates the previous fields that involved ParseFns
 pub struct Parser<'a> {
     lexer: &'a mut Lexer,
     cur_token: Token,
@@ -404,7 +405,9 @@ impl<'a> Parser<'a> {
             } else {
                 initializer = self.parse_expression_statement();
             }
-            if self.cur_token.token_type != TokenType::Semicolon && self.peek_token_is(&TokenType::Semicolon) {
+            if self.cur_token.token_type != TokenType::Semicolon
+                && self.peek_token_is(&TokenType::Semicolon)
+            {
                 self.next_token();
             }
         }
@@ -443,7 +446,9 @@ impl<'a> Parser<'a> {
             } else {
                 update = self.parse_expression_statement();
             }
-            if self.cur_token.token_type != TokenType::Semicolon && self.peek_token_is(&TokenType::Semicolon) {
+            if self.cur_token.token_type != TokenType::Semicolon
+                && self.peek_token_is(&TokenType::Semicolon)
+            {
                 self.next_token();
             }
         }
@@ -641,12 +646,30 @@ mod tests {
         }
 
         let tests = vec![
-            Test { input: "5;", expected: 5 },
-            Test { input: "10;", expected: 10 },
-            Test { input: "0;", expected: 0 },
-            Test { input: "123456789;", expected: 123456789 },
-            Test { input: "0x2A;", expected: 42 },
-            Test { input: "0b101010;", expected: 42 },
+            Test {
+                input: "5;",
+                expected: 5,
+            },
+            Test {
+                input: "10;",
+                expected: 10,
+            },
+            Test {
+                input: "0;",
+                expected: 0,
+            },
+            Test {
+                input: "123456789;",
+                expected: 123456789,
+            },
+            Test {
+                input: "0x2A;",
+                expected: 42,
+            },
+            Test {
+                input: "0b101010;",
+                expected: 42,
+            },
         ];
 
         for t in tests {
@@ -680,9 +703,21 @@ mod tests {
         }
 
         let tests = vec![
-            Test { input: "-15;", operator: "-", value: 15 },
-            Test { input: "-0x2A;", operator: "-", value: 42 },
-            Test { input: "-0b1010;", operator: "-", value: 10 },
+            Test {
+                input: "-15;",
+                operator: "-",
+                value: 15,
+            },
+            Test {
+                input: "-0x2A;",
+                operator: "-",
+                value: 42,
+            },
+            Test {
+                input: "-0b1010;",
+                operator: "-",
+                value: 10,
+            },
         ];
 
         for t in tests {
@@ -697,7 +732,9 @@ mod tests {
 
             match stmt {
                 Statement::Expression { expression, .. } => match expression {
-                    Expression::Prefix { operator, right, .. } => {
+                    Expression::Prefix {
+                        operator, right, ..
+                    } => {
                         assert_eq!(operator, t.operator);
                         match &**right {
                             Expression::Int { value, .. } => {

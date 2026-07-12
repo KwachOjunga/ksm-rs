@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use crate::token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -27,8 +28,13 @@ impl std::fmt::Display for BlockStatement {
     }
 }
 
+// TODO: handle instances that require one to perform variable mutation.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
+    /// statements that evaluate to a variable declaration
+    // var name = expr;
+    // NOTE: this implies that the value assigned to name includes functions
     Let {
         token: Token,
         name: Identifier,
@@ -75,7 +81,10 @@ impl std::fmt::Display for Statement {
             Statement::Let { token, name, value } => {
                 write!(f, "{} {} = {};", token.literal, name, value)
             }
-            Statement::Return { token, return_value } => {
+            Statement::Return {
+                token,
+                return_value,
+            } => {
                 write!(f, "{} {};", token.literal, return_value)
             }
             Statement::Expression { expression, .. } => {
@@ -84,17 +93,30 @@ impl std::fmt::Display for Statement {
             Statement::Block(block) => {
                 write!(f, "{}", block)
             }
-            Statement::If { condition, consequence, alternative, .. } => {
+            Statement::If {
+                condition,
+                consequence,
+                alternative,
+                ..
+            } => {
                 write!(f, "if ({}) {}", condition, consequence)?;
                 if let Some(alt) = alternative {
                     write!(f, " else {}", alt)?;
                 }
                 Ok(())
             }
-            Statement::While { condition, body, .. } => {
+            Statement::While {
+                condition, body, ..
+            } => {
                 write!(f, "while ({}) {}", condition, body)
             }
-            Statement::For { initializer, condition, update, body, .. } => {
+            Statement::For {
+                initializer,
+                condition,
+                update,
+                body,
+                ..
+            } => {
                 write!(f, "for (")?;
                 if let Some(init) = initializer {
                     let init_str = init.to_string();
@@ -173,20 +195,34 @@ impl std::fmt::Display for Expression {
             Expression::Float { token, .. } => write!(f, "{}", token.literal),
             Expression::String { token, .. } => write!(f, "{}", token.literal),
             Expression::Bool { token, .. } => write!(f, "{}", token.literal),
-            Expression::Prefix { operator, right, .. } => {
+            Expression::Prefix {
+                operator, right, ..
+            } => {
                 write!(f, "({}{})", operator, right)
             }
-            Expression::Infix { left, operator, right, .. } => {
+            Expression::Infix {
+                left,
+                operator,
+                right,
+                ..
+            } => {
                 write!(f, "({} {} {})", left, operator, right)
             }
-            Expression::Function { parameters, body, .. } => {
+            Expression::Function {
+                parameters, body, ..
+            } => {
                 let params: Vec<String> = parameters.iter().map(|p| p.to_string()).collect();
                 write!(f, "func({}) {}", params.join(", "), body)
             }
-            Expression::Call { function, arguments, .. } => {
+            Expression::Call {
+                function,
+                arguments,
+                ..
+            } => {
                 let args: Vec<String> = arguments.iter().map(|a| a.to_string()).collect();
                 write!(f, "{}({})", function, args.join(", "))
             }
+            _ => unimplemented!("Whatever expr you are trying to print is yet to be implemented!"),
         }
     }
 }
