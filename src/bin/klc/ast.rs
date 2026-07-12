@@ -6,10 +6,10 @@
 //!   - Comparison operators: `<`, `>`, `==`, `!=`, `<=`, `>=`
 //!   - Variable references                 // What does this mean exactly?????
 //!   - Function calls: `name(args...)`
-//!   - `if expr { stmts } else { stmts }` — a conditional statement    : DELETE
-//!   - `if (expr) {statements} else {statements}` - if conditional.
-//!   - `while expr { stmts }` — a conditional loop                     : DELETE
-//!   - `while (expr) {statments}
+//!   - `if expr { stmts } else { stmts }` — a conditional statement
+//!    ::current GO impl!::  - `if (expr) {statements} else {statements}` - if conditional.
+//!   - `while expr { stmts }` — a conditional loop
+//!    ::current GO impl!::  - `while (expr) {statments}
 //!   - `const name;` / `const name = expr;` — variable declaration  statement              // This needs to be looked at seriously. What does it mean to have a const def that can be mut.
 //!   - `name = expr;` — assignment statement
 //!   - `return expr;` — return statement
@@ -203,8 +203,7 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    unimplemented!()
-    // stmt_().parse_stream(input).into_result()
+    stmt_().parse_stream(input).into_result()
 }
 // ANCHOR_END: stmt_fn
 
@@ -336,7 +335,7 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (
-        keyword("var"),
+        keyword("const"),
         ident_(),
         optional(tok('=').with(combine::parser(expr_fn::<Input>))),
         tok(';'),
@@ -458,7 +457,7 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (
-        keyword("def"),
+        keyword("func"),
         ident_(),
         between(tok('('), tok(')'), sep_by(ident_(), tok(','))),
         block_(),
