@@ -60,10 +60,13 @@ pub fn start() -> io::Result<()> {
 
 pub fn read_file<P: AsRef<Path>>(filename: P) -> io::Result<()> {
     let clean_path = filename.as_ref();
-    
+
     // Check if path is valid (mimicking the path validation)
     if clean_path.to_str().is_none() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid file path"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid file path",
+        ));
     }
 
     println!("Reading from file: {}", clean_path.display());

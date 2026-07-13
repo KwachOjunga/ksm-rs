@@ -112,7 +112,9 @@ impl Lexer {
         let mut token_type = TokenType::Int;
 
         // Check for hexadecimal (0x prefix)
-        if self.char == '0' && (self.peek_next_character() == 'x' || self.peek_next_character() == 'X') {
+        if self.char == '0'
+            && (self.peek_next_character() == 'x' || self.peek_next_character() == 'X')
+        {
             self.read_current_character(); // consume '0'
             self.read_current_character(); // consume 'x' / 'X'
 
@@ -124,7 +126,9 @@ impl Lexer {
         }
 
         // Check for binary (0b prefix)
-        if self.char == '0' && (self.peek_next_character() == 'b' || self.peek_next_character() == 'B') {
+        if self.char == '0'
+            && (self.peek_next_character() == 'b' || self.peek_next_character() == 'B')
+        {
             self.read_current_character(); // consume '0'
             self.read_current_character(); // consume 'b' / 'B'
 
@@ -256,10 +260,16 @@ impl Lexer {
                 if is_letter(self.char) {
                     let literal = self.read_identifier();
                     let token_type = token::lookup_identifier(&literal);
-                    return Token { token_type, literal };
+                    return Token {
+                        token_type,
+                        literal,
+                    };
                 } else if is_digit(self.char) {
                     let (literal, token_type) = self.read_number();
-                    return Token { token_type, literal };
+                    return Token {
+                        token_type,
+                        literal,
+                    };
                 } else if let Some(tok_type) = single_char_token(self.char) {
                     Token {
                         token_type: tok_type,
@@ -356,86 +366,211 @@ mod tests {
             Test {
                 name: "Empty input",
                 input: "",
-                expected: vec![
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
-                ],
+                expected: vec![Token {
+                    token_type: TokenType::Eof,
+                    literal: "".to_string(),
+                }],
             },
             Test {
                 name: "Unterminated string",
                 input: "\"unclosed string",
                 expected: vec![
-                    Token { token_type: TokenType::Illegal, literal: "unterminated string".to_string() },
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
+                    Token {
+                        token_type: TokenType::Illegal,
+                        literal: "unterminated string".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Eof,
+                        literal: "".to_string(),
+                    },
                 ],
             },
             Test {
                 name: "Unterminated multiline comment",
                 input: "/* unclosed comment",
-                expected: vec![
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
-                ],
+                expected: vec![Token {
+                    token_type: TokenType::Eof,
+                    literal: "".to_string(),
+                }],
             },
             Test {
                 name: "Numbers with decimal points",
                 input: "42.5 3.14159 .5 5.",
                 expected: vec![
-                    Token { token_type: TokenType::Float, literal: "42.5".to_string() },
-                    Token { token_type: TokenType::Float, literal: "3.14159".to_string() },
-                    Token { token_type: TokenType::Float, literal: ".5".to_string() },
-                    Token { token_type: TokenType::Float, literal: "5.".to_string() },
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
+                    Token {
+                        token_type: TokenType::Float,
+                        literal: "42.5".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Float,
+                        literal: "3.14159".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Float,
+                        literal: ".5".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Float,
+                        literal: "5.".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Eof,
+                        literal: "".to_string(),
+                    },
                 ],
             },
             Test {
                 name: "Complex nested expressions",
                 input: "((x + y) * (z - 1)) / 2",
                 expected: vec![
-                    Token { token_type: TokenType::LeftParenthesis, literal: "(".to_string() },
-                    Token { token_type: TokenType::LeftParenthesis, literal: "(".to_string() },
-                    Token { token_type: TokenType::Identifier, literal: "x".to_string() },
-                    Token { token_type: TokenType::Plus, literal: "+".to_string() },
-                    Token { token_type: TokenType::Identifier, literal: "y".to_string() },
-                    Token { token_type: TokenType::RightParenthesis, literal: ")".to_string() },
-                    Token { token_type: TokenType::Asterisk, literal: "*".to_string() },
-                    Token { token_type: TokenType::LeftParenthesis, literal: "(".to_string() },
-                    Token { token_type: TokenType::Identifier, literal: "z".to_string() },
-                    Token { token_type: TokenType::Minus, literal: "-".to_string() },
-                    Token { token_type: TokenType::Int, literal: "1".to_string() },
-                    Token { token_type: TokenType::RightParenthesis, literal: ")".to_string() },
-                    Token { token_type: TokenType::RightParenthesis, literal: ")".to_string() },
-                    Token { token_type: TokenType::Slash, literal: "/".to_string() },
-                    Token { token_type: TokenType::Int, literal: "2".to_string() },
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
+                    Token {
+                        token_type: TokenType::LeftParenthesis,
+                        literal: "(".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::LeftParenthesis,
+                        literal: "(".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "x".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Plus,
+                        literal: "+".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "y".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::RightParenthesis,
+                        literal: ")".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Asterisk,
+                        literal: "*".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::LeftParenthesis,
+                        literal: "(".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "z".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Minus,
+                        literal: "-".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Int,
+                        literal: "1".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::RightParenthesis,
+                        literal: ")".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::RightParenthesis,
+                        literal: ")".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Slash,
+                        literal: "/".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Int,
+                        literal: "2".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Eof,
+                        literal: "".to_string(),
+                    },
                 ],
             },
             Test {
                 name: "Mixed comments and code",
                 input: "// Line comment\n\t\t\tx = 1; /* Multi\n\t\t\tline comment */ y = 2;\n\t\t\t// Another comment",
                 expected: vec![
-                    Token { token_type: TokenType::Identifier, literal: "x".to_string() },
-                    Token { token_type: TokenType::Assign, literal: "=".to_string() },
-                    Token { token_type: TokenType::Int, literal: "1".to_string() },
-                    Token { token_type: TokenType::Semicolon, literal: ";".to_string() },
-                    Token { token_type: TokenType::Identifier, literal: "y".to_string() },
-                    Token { token_type: TokenType::Assign, literal: "=".to_string() },
-                    Token { token_type: TokenType::Int, literal: "2".to_string() },
-                    Token { token_type: TokenType::Semicolon, literal: ";".to_string() },
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "x".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Assign,
+                        literal: "=".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Int,
+                        literal: "1".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Semicolon,
+                        literal: ";".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "y".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Assign,
+                        literal: "=".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Int,
+                        literal: "2".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Semicolon,
+                        literal: ";".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Eof,
+                        literal: "".to_string(),
+                    },
                 ],
             },
             Test {
                 name: "Special characters and operators",
                 input: "!= == < <= > >= && ||",
                 expected: vec![
-                    Token { token_type: TokenType::NotEqual, literal: "!=".to_string() },
-                    Token { token_type: TokenType::Equal, literal: "==".to_string() },
-                    Token { token_type: TokenType::LessThan, literal: "<".to_string() },
-                    Token { token_type: TokenType::LessEqual, literal: "<=".to_string() },
-                    Token { token_type: TokenType::GreaterThan, literal: ">".to_string() },
-                    Token { token_type: TokenType::GreaterEqual, literal: ">=".to_string() },
-                    Token { token_type: TokenType::And, literal: "&&".to_string() },
-                    Token { token_type: TokenType::Or, literal: "||".to_string() },
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
+                    Token {
+                        token_type: TokenType::NotEqual,
+                        literal: "!=".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Equal,
+                        literal: "==".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::LessThan,
+                        literal: "<".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::LessEqual,
+                        literal: "<=".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::GreaterThan,
+                        literal: ">".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::GreaterEqual,
+                        literal: ">=".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::And,
+                        literal: "&&".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Or,
+                        literal: "||".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Eof,
+                        literal: "".to_string(),
+                    },
                 ],
             },
         ];
@@ -471,18 +606,54 @@ mod tests {
                     string_delimiters: vec!['"'],
                 },
                 expected: vec![
-                    Token { token_type: TokenType::Identifier, literal: "x".to_string() },
-                    Token { token_type: TokenType::Assign, literal: "=".to_string() },
-                    Token { token_type: TokenType::Int, literal: "1".to_string() },
-                    Token { token_type: TokenType::Semicolon, literal: ";".to_string() },
-                    Token { token_type: TokenType::Slash, literal: "/".to_string() },
-                    Token { token_type: TokenType::Slash, literal: "/".to_string() },
-                    Token { token_type: TokenType::Identifier, literal: "comment".to_string() },
-                    Token { token_type: TokenType::Identifier, literal: "y".to_string() },
-                    Token { token_type: TokenType::Assign, literal: "=".to_string() },
-                    Token { token_type: TokenType::Int, literal: "2".to_string() },
-                    Token { token_type: TokenType::Semicolon, literal: ";".to_string() },
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "x".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Assign,
+                        literal: "=".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Int,
+                        literal: "1".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Semicolon,
+                        literal: ";".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Slash,
+                        literal: "/".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Slash,
+                        literal: "/".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "comment".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Identifier,
+                        literal: "y".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Assign,
+                        literal: "=".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Int,
+                        literal: "2".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Semicolon,
+                        literal: ";".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Eof,
+                        literal: "".to_string(),
+                    },
                 ],
             },
             Test {
@@ -493,9 +664,18 @@ mod tests {
                     string_delimiters: vec!['\'', '"'],
                 },
                 expected: vec![
-                    Token { token_type: TokenType::String, literal: "single".to_string() },
-                    Token { token_type: TokenType::String, literal: "double".to_string() },
-                    Token { token_type: TokenType::Eof, literal: "".to_string() },
+                    Token {
+                        token_type: TokenType::String,
+                        literal: "single".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::String,
+                        literal: "double".to_string(),
+                    },
+                    Token {
+                        token_type: TokenType::Eof,
+                        literal: "".to_string(),
+                    },
                 ],
             },
         ];
