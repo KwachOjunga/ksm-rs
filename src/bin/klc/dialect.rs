@@ -20,7 +20,7 @@ use pliron::{
     },
     common_traits::Verify,
     context::{Context, Ptr},
-    derive::{pliron_attr, pliron_op},
+    derive::pliron_op,
     op::Op,
     operation::Operation,
     region::Region,
