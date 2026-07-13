@@ -1,0 +1,13 @@
+func GCDIterative(a, b)  {
+	for b != 0 {
+		a, b = b, a%b; // Simultaneous assignment swaps and finds remainder
+	}
+	return a;
+}
+
+
+func main() {
+	num1, num2 := 48, 18
+	result := GCDIterative(num1, num2)
+	fmt.Printf("The GCD of %d and %d is: %d\n", num1, num2, result)
+}
