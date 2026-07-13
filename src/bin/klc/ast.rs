@@ -22,7 +22,6 @@
 //  - assignment is defined
 //  - we have the option to switch the parser easily here. (room for more experimentation)
 //  - we are closer to machine code
-#![allow(unused)]
 use combine::{
     EasyParser, Parser, Stream, attempt, between, choice, eof,
     error::{ParseError, StdParseResult},
