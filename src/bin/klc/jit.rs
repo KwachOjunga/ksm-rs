@@ -46,7 +46,7 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
 /// Execute the function `name` of a Kisumu_lang program using JIT compilation
 /// The function must have the signature `fn(i64) -> i64`
 // ANCHOR: exec_fn
-pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<i64> {
+pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
     initialize_native()
         .map_err(|e| input_error_noloc!("Failed to initialize native target: {}", e))?;
     let llvm_ctx = LLVMContext::default();
@@ -68,8 +68,8 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<i64> {
             name
         ));
     }
-
-    println!("Generated LLVM IR:\n{}", llvm_module.to_string());
+    let llvm_out = llvm_module.to_string().clone();
+    // println!("Generated LLVM IR:\n{}", llvm_module.to_string());
 
     // JIT compile and execute the main function
     let lljit = pliron_llvm::llvm_sys::lljit::LLVMLLJIT::new_with_default_builder()
@@ -82,7 +82,7 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<i64> {
         .map_err(|e| input_error_noloc!("Failed to find main function in JIT: {}", e))?;
 
     let main_fn: extern "C" fn(i64) -> i64 = unsafe { std::mem::transmute(main_fn) };
-    Ok(main_fn(arg))
+    Ok((main_fn(arg), llvm_out.to_string()))
 }
 // ANCHOR_END: exec_fn
 
@@ -95,7 +95,7 @@ mod tests {
     fn fibonacci_jit() {
         let src = std::fs::read_to_string("./examples/fibonacci.kl")
             .expect("failed to read fibonacci.kal");
-        let result = exec_fn(&src, "main", 5).expect("failed to execute main function");
+        let (result, _) = exec_fn(&src, "main", 5).expect("failed to execute main function");
         assert_eq!(result, 5);
     }
     // ANCHOR_END: fibonacci_jit_test
@@ -105,7 +105,7 @@ mod tests {
     fn factorial_jit() {
         let src = std::fs::read_to_string("./examples/factorial.kl")
             .expect("failed to read factorial.kl");
-        let result = exec_fn(&src, "main", 5).expect("failed to execute main function");
+        let (result, _) = exec_fn(&src, "main", 5).expect("failed to execute main function");
         assert_eq!(result, 120);
     }
     // ANCHOR_END: factorial_jit_test
@@ -124,11 +124,11 @@ mod tests {
                 return result;
             }
         ";
-        let result = exec_fn(src, "abs", 42).expect("failed to execute main function");
+        let (result, _) = exec_fn(src, "abs", 42).expect("failed to execute main function");
         assert_eq!(result, 42);
-        let result = exec_fn(src, "abs", -42).expect("failed to execute main function");
+        let (result, _) = exec_fn(src, "abs", -42).expect("failed to execute main function");
         assert_eq!(result, 42);
-        let result = exec_fn(src, "abs", 0).expect("failed to execute main function");
+        let (result, _) = exec_fn(src, "abs", 0).expect("failed to execute main function");
         assert_eq!(result, 0);
     }
     // ANCHOR_END: if_else_jit_test

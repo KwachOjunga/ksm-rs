@@ -6,7 +6,11 @@ mod dialect;
 mod jit;
 mod klir_lowering;
 
-use std::{path::PathBuf, process::ExitCode};
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+    process::{Command, ExitCode, Stdio},
+};
 
 use clap::Parser;
 
@@ -24,11 +28,46 @@ struct Cli {
     /// Integer argument passed to the JIT function
     #[arg(long = "arg", short = 'a')]
     arg: i64,
+
+    #[arg(long = "output", short = 'o', default_value = "false")]
+    output: bool,
+}
+
+// this routine helps as have machine code now rather than later but its rather useless.
+// An objdump of the file can yield more information.!
+fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P) -> std::io::Result<()> {
+    let mut child = Command::new("clang")
+        .args(["-x", "ir", "-", "-o"])
+        .arg(output.as_ref())
+        .stdin(Stdio::piped())
+        .spawn()?;
+
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(llvm_ir.as_bytes())?;
+
+    let status = child.wait()?;
+
+    if !status.success() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "clang failed",
+        ));
+    }
+
+    Ok(())
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let src = std::fs::read_to_string(&cli.input)?;
-    let result = jit::exec_fn(&src, &cli.function, cli.arg)?;
+    let file_name = &cli.input.file_prefix().unwrap();
+    let (result, llvm_out) = jit::exec_fn(&src, &cli.function, cli.arg)?;
+    // generate binary.
+    if cli.output {
+        compile_llvm_ir(llvm_out.as_str(), file_name)?;
+    }
     println!("JIT result ({}({})): {}", cli.function, cli.arg, result);
     Ok(())
 }
