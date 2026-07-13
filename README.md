@@ -11,7 +11,7 @@ The code base exists in the following parts;
 
   To try observe the current llvm output one can run:
 
-  ensure you have atleast the stable version of rust installed.
+  ensure you have atleast the stable version of rust installed and LLVM 22 in your path.
 
 ```sh
     cargo r --bin klc --input src/bin/klc/examples/fibonacci.kl --arg 7 
