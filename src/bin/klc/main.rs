@@ -37,7 +37,14 @@ struct Cli {
 // An objdump of the file can yield more information.!
 fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P) -> std::io::Result<()> {
     let mut child = Command::new("clang")
-        .args(["-x", "ir", "-", "-o"])
+        .args([
+            "--target=riscv64-unknown-linux-gnu",
+            "-v",
+            "-x",
+            "ir",
+            "-",
+            "-o",
+        ])
         .arg(output.as_ref())
         .stdin(Stdio::piped())
         .spawn()?;
