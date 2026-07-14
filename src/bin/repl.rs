@@ -1,5 +1,5 @@
 use ::repl::repl;
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 use tracing_subscriber;
 
 // port this to clap
