@@ -43,6 +43,9 @@ fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P) -> std::io::Result<
         .args([
             "--target=riscv64-unknown-linux-gnu",
             "-v",
+            "--gcc-toolchain=/home/rojunga/riscv",
+            "--sysroot=/home/rojunga/riscv/sysroot",
+            "--ld-path=/home/rojunga/.cargo/bin/wild",
             "-x",
             "ir",
             "-",
