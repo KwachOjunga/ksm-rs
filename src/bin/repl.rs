@@ -1,8 +1,12 @@
 use ::repl::repl;
+use tracing::{debug, error, info, warn};
+use tracing_subscriber;
 
+// port this to clap
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let mut file_path = None;
+    tracing_subscriber::fmt::init();
 
     // A simple command-line arguments parser supporting "-file path" and "--file path"
     let mut i = 1;
@@ -28,12 +32,14 @@ fn main() {
     }
 
     if let Some(path) = file_path {
+        warn!(" Using Repl to execute input file");
+        warn!(" Normalize using the comiler for such");
         if let Err(err) = repl::read_file(&path) {
             eprintln!("File execution failed: {}", err);
             std::process::exit(1);
         }
     } else {
-        println!("No input file provided - entering interactive mode");
+        info!("Entering interactive mode");
         if let Err(err) = repl::start() {
             eprintln!("REPL failed: {}", err);
             std::process::exit(1);
