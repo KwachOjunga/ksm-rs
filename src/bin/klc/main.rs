@@ -31,6 +31,9 @@ struct Cli {
 
     #[arg(long = "output", short = 'o', default_value = "false")]
     output: bool,
+
+    #[arg(long = "llvm-ir", short = 'r', default_value = "false")]
+    llvm_ir: bool,
 }
 
 // this routine helps as have machine code now rather than later but its rather useless.
@@ -74,6 +77,9 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     // generate binary.
     if cli.output {
         compile_llvm_ir(llvm_out.as_str(), file_name)?;
+    }
+    if cli.llvm_ir {
+        println!("{}", llvm_out);
     }
     println!("JIT result ({}({})): {}", cli.function, cli.arg, result);
     Ok(())

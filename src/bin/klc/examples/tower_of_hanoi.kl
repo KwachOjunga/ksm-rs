@@ -1,0 +1,32 @@
+// Hanoi solves the puzzle by moving n disks from source to target using auxiliary
+/*
+* Decide on how to handle pointers or whether you will even expose them in the language
+*/
+
+func Hanoi(n int, source, target, auxiliary string, moves *int) {
+	if n == 1 {
+		*moves++
+		// fmt.Printf("Step %d: Move disk 1 from %s to %s\n", *moves, source, target)
+		return
+	}
+
+	// Move top n-1 disks from source to auxiliary peg
+	Hanoi(n-1, source, auxiliary, target, moves)
+
+	// Move the remaining largest disk from source to target peg
+	*moves++
+	fmt.Printf("Step %d: Move disk %d from %s to %s\n", *moves, n, source, target)
+
+	// Move the n-1 disks from auxiliary to target peg
+	Hanoi(n-1, auxiliary, target, source, moves)
+}
+
+func main() {
+	const disks = 3;
+	const totalMoves = 0;
+
+	// fmt.Printf("Solving Tower of Hanoi for %d disks:\n", disks)
+	Hanoi(disks, "A", "C", "B", &totalMoves)
+
+	fmt.Printf("\nTotal moves required: %d\n", totalMoves)
+}
