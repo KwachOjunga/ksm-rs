@@ -34,27 +34,47 @@ struct Cli {
 
     #[arg(long = "llvm-ir", short = 'r', default_value = "false")]
     llvm_ir: bool,
+
+    #[arg(long)]
+    target: Option<String>,
 }
 
 // this routine helps as have machine code now rather than later but its rather useless.
 // An objdump of the file can yield more information.!
-fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P) -> std::io::Result<()> {
-    let mut child = Command::new("clang")
-        .args([
-            "--target=riscv64-unknown-linux-gnu",
-            "-v",
-            // "--gcc-toolchain=/home/r/riscv",
-            // "--sysroot=/home/rojunga/riscv/sysroot",
-            // "--ld-path=/home/rojunga/.cargo/bin/wild",
-            "--ld-path=/home/gevurah/.cargo/bin/wild",
-            "-x",
-            "ir",
-            "-",
-            "-o",
-        ])
-        .arg(output.as_ref())
-        .stdin(Stdio::piped())
-        .spawn()?;
+fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P, cli: &Cli) -> std::io::Result<()> {
+    let mut child = if &cli.target == &Some(String::from("riscv")) {
+        Command::new("clang")
+            .args([
+                "--target=riscv64-unknown-linux-gnu",
+                "-v",
+                "--gcc-toolchain=/home/rojunga/riscv",
+                "--sysroot=/home/rojunga/riscv/sysroot",
+                "--ld-path=/home/rojunga/.cargo/bin/wild",
+                // "--ld-path=/home/gevurah/.cargo/bin/wild",
+                "-x",
+                "ir",
+                "-",
+                "-o",
+            ])
+            .arg(output.as_ref())
+            .stdin(Stdio::piped())
+            .spawn()?
+    } else {
+        // defaults to host arch
+        Command::new("clang")
+            .args([
+                "-v",
+                "--ld-path=/home/rojunga/.cargo/bin/wild",
+                // "--ld-path=/home/gevurah/.cargo/bin/wild",
+                "-x",
+                "ir",
+                "-",
+                "-o",
+            ])
+            .arg(output.as_ref())
+            .stdin(Stdio::piped())
+            .spawn()?
+    };
 
     child
         .stdin
@@ -80,7 +100,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let (result, llvm_out) = jit::exec_fn(&src, &cli.function, cli.arg)?;
     // generate binary.
     if cli.output {
-        compile_llvm_ir(llvm_out.as_str(), file_name)?;
+        compile_llvm_ir(llvm_out.as_str(), file_name, &cli)?;
     }
     if cli.llvm_ir {
         println!("{}", llvm_out);
