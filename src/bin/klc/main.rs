@@ -42,7 +42,7 @@ struct Cli {
 // this routine helps as have machine code now rather than later but its rather useless.
 // An objdump of the file can yield more information.!
 fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P, cli: &Cli) -> std::io::Result<()> {
-    let mut child = if &cli.target == &Some(String::from("riscv")) {
+    let mut child = if cli.target == Some(String::from("riscv")) {
         Command::new("clang")
             .args([
                 "--target=riscv64-unknown-linux-gnu",
@@ -64,8 +64,8 @@ fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P, cli: &Cli) -> std::
         Command::new("clang")
             .args([
                 "-v",
-                "--ld-path=/home/rojunga/.cargo/bin/wild",
-                // "--ld-path=/home/gevurah/.cargo/bin/wild",
+                "--ld-path=/home/gevurah/.cargo/bin/wild",
+                // "--ld-path=/home/rojunga/cargo/bin/wild",
                 "-x",
                 "ir",
                 "-",
@@ -85,10 +85,7 @@ fn compile_llvm_ir<P: AsRef<Path>>(llvm_ir: &str, output: P, cli: &Cli) -> std::
     let status = child.wait()?;
 
     if !status.success() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "clang failed",
-        ));
+        return Err(std::io::Error::other("clang failed"));
     }
 
     Ok(())

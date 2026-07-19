@@ -9,6 +9,10 @@ name = "repl"
 [lib]
 name = "repl"
 
+[features]
+verbose = []
+
+
 [dependencies]
 awint = "0.18.1"
 clap = { version = "4.6.1", features = ["derive"] }

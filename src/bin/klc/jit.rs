@@ -1,5 +1,7 @@
 //! JIT compilation example for Kisumu_lang using pliron-llvm
 
+#[cfg(feature = "verbose")]
+use pliron::printable::Printable;
 use pliron::{
     builtin::{op_interfaces::SingleBlockRegionInterface, ops::ModuleOp},
     context::Context,
@@ -35,6 +37,8 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     lower_module(ctx, module)?;
     verify_operation(module.get_operation(), ctx)?;
     // Convert from LLVM dialect to LLVM IR
+    #[cfg(feature = "verbose")]
+    println!("Pliron IR\n{}\n", module.get_operation().disp(ctx));
     let llvm_module = to_llvm_ir::convert_module(ctx, llvm_ctx, module)?;
     llvm_module
         .verify()
