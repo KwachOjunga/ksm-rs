@@ -43,6 +43,14 @@ limited scope needs to be constrained to all modules.
 
 Note: Struct types can be opaque types. This means they can be used to contain recursive types.
 
+## Switch case statements
+
+We must have nice things.
+We'll go about designing our on semantics of switch case statements and leverage the LLVM IR's 
+indirect_br instruction.
+The behavior ought to match one's expectation if they were doing it from a different language.
+
+
 ## 22/07/2026
 
 So currently i am looking at the opportunity that has fallen onto my lap.
