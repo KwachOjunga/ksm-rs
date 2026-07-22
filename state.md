@@ -9,7 +9,7 @@ Unimplemented.
   ```
     name++
   ```
-- Perform multivariable declaration on a single line.
+- Perform multivariable declaration on a single line? - anyone
   ```go
     // The equivalent of var name1, name2 = ...
 	```
@@ -49,6 +49,22 @@ We must have nice things.
 We'll go about designing our on semantics of switch case statements and leverage the LLVM IR's 
 indirect_br instruction.
 The behavior ought to match one's expectation if they were doing it from a different language.
+
+# Void Type
+
+Current "builtin types" are the implicit i64, which casts whatever integer is passed to that and 
+also an implicit f64 type for float equivalents.
+
+To have a function whose return type is void is yet to be defined.
+
+This calls for introducing a void keyword or symbol equivalent into the default's 
+language syntax.
+This will means the scanner and parser have to be updated as needed to recognise the new
+member and the dialect module updated to define the semantics of the symbol/keyword and
+give room for the definition of how its lowering is to be done.
+
+From the ast to the pliron llvm dialect and then to the llvm ir before passing it to clang.
+
 
 
 ## 22/07/2026
