@@ -39,21 +39,16 @@ use crate::{
     },
 };
 
-// ANCHOR: type_aliases
 /// Inserter type used throughout this module.
 type OpInserter = IRInserter<DummyListener>;
 
 /// Maps variable names to the slot-pointer [`Value`] produced by their [`DeclOp`].
 type VarMap = FxHashMap<String, Value>;
-// ANCHOR_END: type_aliases
-
-// ─── Public API ─────────────────────────────────────────────────────────────
 
 /// Lower a single Kismu_lang [`Function`] AST node into a [`FuncOp`].
 ///
 /// All parameters and local variables are spilled into [`DeclOp`] memory slots.
 /// The produced [`FuncOp`] has the signature `(i64, …) -> i64`.
-// ANCHOR: lower_function
 pub fn lower_function(ctx: &mut Context, func: &Function) -> Result<FuncOp> {
     let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
 
@@ -89,7 +84,7 @@ pub fn lower_function(ctx: &mut Context, func: &Function) -> Result<FuncOp> {
 
     lower_stmts(ctx, &mut ins, &mut var_map, &func.body)?;
 
-    // ANCHOR: lower_function_fallback
+    // lower_function_fallback
     // If no terminator was emitted (e.g., function ends with an `if` where both
     // branches return), add a fallback return of 0 to satisfy the verifier.
     if entry.deref(ctx).get_terminator(ctx).is_none() {
@@ -121,7 +116,6 @@ fn lower_stmts(
     }
     Ok(terminated)
 }
-// ANCHOR_END: lower_stmts
 
 /// Lower one statement. Returns `true` if it emitted a block terminator.
 fn lower_stmt(
@@ -134,7 +128,6 @@ fn lower_stmt(
 
     match stmt {
         // ── var name; / var name = expr; ──────────────────────────────────
-        // ANCHOR: lower_stmt_vardecl
         Stmt::VarDecl { name, init } => {
             let slot = DeclOp::new(ctx, i64_ty.into());
             let slot_val = slot.get_result(ctx);
@@ -148,10 +141,8 @@ fn lower_stmt(
             }
             Ok(false)
         }
-        // ANCHOR_END: lower_stmt_vardecl
 
         // ── name = expr; ──────────────────────────────────────────────────
-        // ANCHOR: lower_stmt_assign
         Stmt::Assign { name, value } => {
             let val = lower_expr(ctx, ins, var_map, value)?;
             let slot = *var_map.get(name.as_str()).ok_or_else(|| {
@@ -164,20 +155,17 @@ fn lower_stmt(
             ins.append_op(ctx, &store);
             Ok(false)
         }
-        // ANCHOR_END: lower_stmt_assign
 
         // ── return expr; ──────────────────────────────────────────────────
-        // ANCHOR: lower_stmt_return
         Stmt::Return(expr) => {
             let val = lower_expr(ctx, ins, var_map, expr)?;
             let ret = ReturnOp::new(ctx, val);
             ins.append_op(ctx, &ret);
             Ok(true) // ReturnOp is a block terminator
         }
-        // ANCHOR_END: lower_stmt_return
 
         // ── if cond { then } else { else } ───────────────────────────────
-        // ANCHOR: lower_stmt_if
+        // As a happy accident, if (cond) { then } else { else } --also works
         Stmt::If {
             cond,
             then_body,
@@ -211,7 +199,6 @@ fn lower_stmt(
 
             Ok(false) // IfOp itself is not a terminator in the outer block
         }
-        // ANCHOR_END: lower_stmt_if
 
         // ── while cond { body } ───────────────────────────────────────────
         //
@@ -251,14 +238,12 @@ fn lower_stmt(
 
             Ok(false) // WhileOp itself is not a terminator in the outer block
         }
-        // ANCHOR_END: lower_stmt_while
 
         // ── expr; (side-effect expression statement) ──────────────────────
-        // ANCHOR: lower_stmt_expr
         Stmt::Expr(expr) => {
             lower_expr(ctx, ins, var_map, expr)?;
             Ok(false)
-        } // ANCHOR_END: lower_stmt_expr
+        }
     }
 }
 
@@ -275,18 +260,13 @@ fn lower_expr(
     let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
 
     match expr {
-        // ── integer literal ───────────────────────────────────────────────
-        // ANCHOR: lower_expr_integer
         Expr::Integer(n) => {
             let op = ConstantOp::new_i64(ctx, *n);
             let val = op.get_result(ctx);
             ins.append_op(ctx, &op);
             Ok(val)
         }
-        // ANCHOR_END: lower_expr_integer
 
-        // ── variable reference ────────────────────────────────────────────
-        // ANCHOR: lower_expr_variable
         Expr::Variable(name) => {
             let slot = *var_map.get(name.as_str()).ok_or_else(|| {
                 input_error!(
@@ -299,10 +279,8 @@ fn lower_expr(
             ins.append_op(ctx, &load);
             Ok(val)
         }
-        // ANCHOR_END: lower_expr_variable
 
         // ── binary operation ──────────────────────────────────────────────
-        // ANCHOR: lower_expr_binop
         Expr::BinOp { op, lhs, rhs } => {
             let lhs_val = lower_expr(ctx, ins, var_map, lhs)?;
             let rhs_val = lower_expr(ctx, ins, var_map, rhs)?;
@@ -312,10 +290,7 @@ fn lower_expr(
             ins.append_op(ctx, &bin_op);
             Ok(val)
         }
-        // ANCHOR_END: lower_expr_binop
 
-        // ── function call ─────────────────────────────────────────────────
-        // ANCHOR: lower_expr_call
         Expr::Call { callee, args } => {
             let mut arg_vals = Vec::with_capacity(args.len());
             for a in args {
@@ -327,7 +302,7 @@ fn lower_expr(
             let val = { val }; // reborrow to release ctx ref before append
             ins.append_op(ctx, &call_op);
             Ok(val)
-        } // ANCHOR_END: lower_expr_call
+        }
     }
 }
 // ANCHOR_END: lower_expr
