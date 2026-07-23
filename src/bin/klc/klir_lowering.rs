@@ -56,7 +56,7 @@ use pliron_llvm::{
     op_interfaces::{CastOpInterface, IntBinArithOpWithOverflowFlag},
     ops::{
         AddOp, AllocaOp, BrOp, CallOp as LlvmCallOp, CondBrOp, ICmpOp, LoadOp as LlvmLoadOp, MulOp,
-        ReturnOp as LlvmReturnOp, SExtOp, StoreOp as LlvmStoreOp, SubOp,
+        ReturnOp as LlvmReturnOp, SExtOp, SRemOp, StoreOp as LlvmStoreOp, SubOp,
     },
     types::FuncType,
 };
@@ -243,6 +243,19 @@ impl ToLLVMDialect for BinOp {
             }
             BinOpKind::Mul => {
                 let op = MulOp::new_with_overflow_flag(
+                    ctx,
+                    lhs,
+                    rhs,
+                    IntegerOverflowFlagsAttr::default(),
+                );
+                let r = op.get_result(ctx);
+                rewriter.insert_op(ctx, &op);
+                r
+            }
+
+            // Impl shim
+            BinOpKind::Mod => {
+                let op = SRemOp::new_with_overflow_flag(
                     ctx,
                     lhs,
                     rhs,
@@ -574,6 +587,6 @@ fn binop_kind_to_icmp_pred(kind: BinOpKind) -> ICmpPredicateAttr {
         BinOpKind::Ge => ICmpPredicateAttr::SGE,
         BinOpKind::Eq => ICmpPredicateAttr::EQ,
         BinOpKind::Ne => ICmpPredicateAttr::NE,
-        _ => panic!("binop_kind_to_icmp_pred: not a comparison op"),
+        _ => panic!("binop_kind_to_icmp_pred: not a comparison op {}", kind),
     }
 }

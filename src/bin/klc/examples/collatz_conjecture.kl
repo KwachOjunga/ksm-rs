@@ -1,21 +1,22 @@
-// ::NOTE:: - This highlights the absence of a modulus operator
+func main(startNumber) {
+        const totalSteps  = Collatz(startNumber);
+        return totalSteps;
+}
 
 func Collatz(n) {
     const steps = 0;
-	while n > 1 {
-		if n%2 == 0 {
-			n = n / 2;
+	while (n > 1) {
+		const v = n % 2;
+		if (v == 0) {
+			n = n - 2;
 		} else {
-			n = 3*n + 1;
+			const x = 3*n;
+			n = x + 1;
 		}
-		// fmt.Printf("-> %d ", n)
-		++steps;
+		steps = steps + 1;	
 	}
 
 	return steps;
 }
 
-func main(startNumber) {
-	const totalSteps  = Collatz(startNumber);
-	return totalSteps;
-}
+

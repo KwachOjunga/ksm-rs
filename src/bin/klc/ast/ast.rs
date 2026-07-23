@@ -35,7 +35,7 @@ use combine::{
     token,
 };
 use pliron::derive::pliron_attr;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 // NOTE: Replace this with the repl impl!
 #[pliron_attr(name = "kisumu_lang.binop_kind", format, verifier = "succ")]
@@ -59,6 +59,38 @@ pub enum BinOp {
     Eq,
     /// Not-equal `!=`
     Ne,
+    /// Logical AND `&&`
+    LogicalAnd,
+    /// Logical OR `||`
+    LogicalOr,
+    /// Logical XOR `^`
+    LogicalXor,
+    /// Modulo `%`
+    Mod,
+    /// Division `/`
+    Div,
+}
+
+// Implement Format for BinOp
+impl Display for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BinOp::Add => write!(f, "+"),
+            BinOp::Sub => write!(f, "-"),
+            BinOp::Mul => write!(f, "*"),
+            BinOp::Div => write!(f, "/"),
+            BinOp::Lt => write!(f, "<"),
+            BinOp::Gt => write!(f, ">"),
+            BinOp::Le => write!(f, "<="),
+            BinOp::Ge => write!(f, ">="),
+            BinOp::Eq => write!(f, "=="),
+            BinOp::Ne => write!(f, "!="),
+            BinOp::LogicalAnd => write!(f, "&&"),
+            BinOp::LogicalOr => write!(f, "||"),
+            BinOp::LogicalXor => write!(f, "^"),
+            BinOp::Mod => write!(f, "%"),
+        }
+    }
 }
 // ANCHOR_END: ast_bin_op
 

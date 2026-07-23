@@ -271,7 +271,12 @@ where
                 sym("==").map(|_| BinOp::Eq),
                 sym("!=").map(|_| BinOp::Ne),
                 tok('<').map(|_| BinOp::Lt),
-                tok('>').map(|_| BinOp::Gt)
+                tok('>').map(|_| BinOp::Gt),
+                tok('/').map(|_| BinOp::Div),
+                sym("%").map(|_| BinOp::Mod),
+                sym("&&").map(|_| BinOp::LogicalAnd),
+                sym("||").map(|_| BinOp::LogicalOr),
+                tok('^').map(|_| BinOp::LogicalXor)
             )
             .and(add_expr_()),
         ),

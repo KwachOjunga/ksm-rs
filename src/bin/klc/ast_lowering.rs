@@ -320,5 +320,10 @@ fn ast_binop_to_kind(op: &AstBinOp) -> BinOpKind {
         AstBinOp::Ge => BinOpKind::Ge,
         AstBinOp::Eq => BinOpKind::Eq,
         AstBinOp::Ne => BinOpKind::Ne,
+        AstBinOp::Mod => BinOpKind::Mod,
+        AstBinOp::Div => BinOpKind::Div,
+        AstBinOp::LogicalAnd => BinOpKind::LogicalAnd,
+        AstBinOp::LogicalOr => BinOpKind::LogicalOr,
+        AstBinOp::LogicalXor => BinOpKind::LogicalXor,
     }
 }

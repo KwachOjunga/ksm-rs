@@ -1,3 +1,7 @@
+/*
+	Port this to Kisumu-Lang
+*/
+
 func GCDIterative(a, b)  {
 	for b != 0 {
 		a, b = b, a%b; // Simultaneous assignment swaps and finds remainder
