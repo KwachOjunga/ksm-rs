@@ -142,15 +142,6 @@ fn lower_stmt(
             Ok(false)
         }
 
-        // Stmt::StructDecl(struct_decl) => {
-        //     let name = &struct_decl.name;
-        //     let fields = &struct_decl.fields;
-        //     let struct_ty = StructType::new(ctx, name, fields);
-        //     let struct_val = ins.append_op(ctx, &DeclOp::new(ctx, struct_ty.into()));
-        //     var_map.insert(name.clone(), struct_val);
-        //     Ok(false)
-        // },
-
         // ── name = expr; ──────────────────────────────────────────────────
         Stmt::Assign { name, value } => {
             let val = lower_expr(ctx, ins, var_map, value)?;
