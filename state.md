@@ -24,8 +24,8 @@ Defining abstract data types i think. This defines certain constructs like struc
 
 ```ksm-lang
 struct Foo {
-  var _name1 Type
-  var _name2 Type
+  _name1 Type,
+  _name2 Type,
 
   fn baz() {} 
 }
@@ -41,7 +41,13 @@ How much control can one have when specifying this?
 Obviously not everything needs to live in the global scope. But also not everything specified within a
 limited scope needs to be constrained to all modules.
 
-Note: Struct types can be opaque types. This means they can be used to contain recursive types.
+Note: Struct types can be opaque types. This means they can be used to define 'blanket struct types'.
+Meaning structs can be defined as:
+
+```ksm-lang
+struct Foo;
+```
+
 
 ## Switch case statements
 
