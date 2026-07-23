@@ -11,6 +11,63 @@ use combine::{
     },
     token,
 };
+use rustc_hash::FxHashMap;
+
+enum PrimTypeShim {
+    I32,
+    U32,
+    U64,
+    I64,
+    F64,
+    F32,
+    USIZE,
+    ISIZE,
+    STRING,
+    Unimplemented,
+}
+
+impl Default for PrimTypeShim {
+    fn default() -> PrimTypeShim {
+        PrimTypeShim::Unimplemented
+    }
+}
+
+//  This table stores parsers to primitive types
+//      - u32,i32,f32
+//      - u64,i64,f64,usize,isize
+//      - String
+struct PrimTypeParsers(FxHashMap<String, PrimTypeShim>);
+
+impl From<FxHashMap<String, PrimTypeShim>> for PrimTypeParsers {
+    fn from(parser_table: FxHashMap<String, PrimTypeShim>) -> Self {
+        Self(parser_table)
+    }
+}
+impl PrimTypeParsers {
+    fn new() -> PrimTypeParsers {
+        let mut res = FxHashMap::default();
+        res.insert(String::from("_"), PrimTypeShim::Unimplemented);
+        res.into()
+    }
+
+    pub fn initialize_prim_parsers() -> PrimTypeParsers {
+        let mut parsers = PrimTypeParsers::new().0;
+        parsers.insert("i32".to_string(), PrimTypeShim::I32); // = PrimTypeParsers::new();
+        parsers.insert("u32".to_string(), PrimTypeShim::U32);
+        parsers.insert("f32".to_string(), PrimTypeShim::F32);
+        parsers.insert("i64".to_string(), PrimTypeShim::I64);
+        parsers.insert("u64".to_string(), PrimTypeShim::U64);
+        parsers.insert("usize".to_string(), PrimTypeShim::USIZE);
+        parsers.insert("isize".to_string(), PrimTypeShim::ISIZE);
+        parsers.insert("string".to_string(), PrimTypeShim::STRING);
+        parsers.into()
+    }
+}
+
+// fn prim_parser_<Input>() -> impl Parser<Input, Output = String> {}
+// The actual parser for primitive types.
+// fn prim_parsers<input>() -> impl Parser<Input, Output = PrimTypeParser>
+
 /// Captures white space
 fn ws<Input>() -> impl Parser<Input, Output = ()>
 where
