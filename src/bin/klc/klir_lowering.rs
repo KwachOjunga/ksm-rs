@@ -53,10 +53,10 @@ use pliron::{
 use pliron_llvm::{
     ToLLVMDialect,
     attributes::{ICmpPredicateAttr, IntegerOverflowFlagsAttr},
-    op_interfaces::{CastOpInterface, IntBinArithOpWithOverflowFlag},
+    op_interfaces::{BinArithOp, CastOpInterface, IntBinArithOpWithOverflowFlag},
     ops::{
         AddOp, AllocaOp, BrOp, CallOp as LlvmCallOp, CondBrOp, ICmpOp, LoadOp as LlvmLoadOp, MulOp,
-        ReturnOp as LlvmReturnOp, SExtOp, SRemOp, StoreOp as LlvmStoreOp, SubOp,
+        ReturnOp as LlvmReturnOp, SDivOp, SExtOp, SRemOp, StoreOp as LlvmStoreOp, SubOp,
     },
     types::FuncType,
 };
@@ -255,12 +255,13 @@ impl ToLLVMDialect for BinOp {
 
             // Impl shim
             BinOpKind::Mod => {
-                let op = SRemOp::new_with_overflow_flag(
-                    ctx,
-                    lhs,
-                    rhs,
-                    IntegerOverflowFlagsAttr::default(),
-                );
+                let op = SRemOp::new(ctx, lhs, rhs);
+                let r = op.get_result(ctx);
+                rewriter.insert_op(ctx, &op);
+                r
+            }
+            BinOpKind::Div => {
+                let op = SDivOp::new(ctx, lhs, rhs);
                 let r = op.get_result(ctx);
                 rewriter.insert_op(ctx, &op);
                 r

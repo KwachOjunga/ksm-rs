@@ -8,15 +8,13 @@ func Collatz(n) {
 	while (n > 1) {
 		const v = n % 2;
 		if (v == 0) {
-			n = n - 2;
+			n = n / 2;
 		} else {
 			const x = 3*n;
 			n = x + 1;
 		}
-		steps = steps + 1;	
+		steps = steps + 1;
 	}
 
 	return steps;
 }
-
-
