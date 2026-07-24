@@ -59,6 +59,12 @@ pub enum BinOp {
     Eq,
     /// Not-equal `!=`
     Ne,
+    /// Bitwise And '&'
+    BitwiseAnd,
+    /// Bitwise Or '|'
+    BitwiseOr,
+    /// Bitwise Xor '^'
+    BitwiseXor,
     /// Logical AND `&&`
     LogicalAnd,
     /// Logical OR `||`
@@ -71,7 +77,6 @@ pub enum BinOp {
     Div,
 }
 
-// Implement Format for BinOp
 impl Display for BinOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -89,10 +94,12 @@ impl Display for BinOp {
             BinOp::LogicalOr => write!(f, "||"),
             BinOp::LogicalXor => write!(f, "^"),
             BinOp::Mod => write!(f, "%"),
+            BinOp::BitwiseAnd => write!(f, "&"),
+            BinOp::BitwiseOr => write!(f, "|"),
+            BinOp::BitwiseXor => write!(f, "^"),
         }
     }
 }
-// ANCHOR_END: ast_bin_op
 
 #[derive(Debug, Clone, PartialEq)]
 enum BuiltinTypes {

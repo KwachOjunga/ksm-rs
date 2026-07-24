@@ -55,8 +55,9 @@ use pliron_llvm::{
     attributes::{ICmpPredicateAttr, IntegerOverflowFlagsAttr},
     op_interfaces::{BinArithOp, CastOpInterface, IntBinArithOpWithOverflowFlag},
     ops::{
-        AddOp, AllocaOp, BrOp, CallOp as LlvmCallOp, CondBrOp, ICmpOp, LoadOp as LlvmLoadOp, MulOp,
-        ReturnOp as LlvmReturnOp, SDivOp, SExtOp, SRemOp, StoreOp as LlvmStoreOp, SubOp,
+        AddOp, AllocaOp, AndOp, BrOp, CallOp as LlvmCallOp, CondBrOp, ICmpOp, LoadOp as LlvmLoadOp,
+        MulOp, OrOp, ReturnOp as LlvmReturnOp, SDivOp, SExtOp, SRemOp, StoreOp as LlvmStoreOp,
+        SubOp, XorOp,
     },
     types::FuncType,
 };
@@ -262,6 +263,24 @@ impl ToLLVMDialect for BinOp {
             }
             BinOpKind::Div => {
                 let op = SDivOp::new(ctx, lhs, rhs);
+                let r = op.get_result(ctx);
+                rewriter.insert_op(ctx, &op);
+                r
+            }
+            BinOpKind::BitwiseAnd => {
+                let op = AndOp::new(ctx, lhs, rhs);
+                let r = op.get_result(ctx);
+                rewriter.insert_op(ctx, &op);
+                r
+            }
+            BinOpKind::BitwiseOr => {
+                let op = OrOp::new(ctx, lhs, rhs);
+                let r = op.get_result(ctx);
+                rewriter.insert_op(ctx, &op);
+                r
+            }
+            BinOpKind::BitwiseXor => {
+                let op = XorOp::new(ctx, lhs, rhs);
                 let r = op.get_result(ctx);
                 rewriter.insert_op(ctx, &op);
                 r

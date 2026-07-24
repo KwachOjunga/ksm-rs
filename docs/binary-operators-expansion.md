@@ -22,9 +22,9 @@ The proposal is to update the supported binary operators to include the followin
 - [ ]  BinaryOperator::LeftShift // <<
 - [ ]  BinaryOperator::RightShift // >>
 - [ ]  BinaryOperator::ArithmeticRightShift // >>>
-- [ ]  BinaryOperator::BitwiseAnd // &
-- [ ]  BinaryOperator::BitwiseOr // |
-- [ ]  BinaryOperator::BitwiseXor // ^
+- [x]  BinaryOperator::BitwiseAnd // &
+- [x]  BinaryOperator::BitwiseOr // |
+- [x]  BinaryOperator::BitwiseXor // ^
 - [ ]  BinaryOperator::WrappingAdd // +.
 - [ ]  BinaryOperator::WrappingSub // -.
 - [ ]  BinaryOperator::WrappingMul // *.

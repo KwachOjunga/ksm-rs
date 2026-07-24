@@ -1,9 +1,9 @@
 func CatalanIterative(n) {
+    const res  = 1;
 	if n <= 1 {
 		return 1;
 	}
 
-	const res  = 1;
 	for i := 1; i <= n; i++ {
 		res = res * (4*i-2) / (i+1)
 	}

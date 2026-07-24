@@ -325,5 +325,8 @@ fn ast_binop_to_kind(op: &AstBinOp) -> BinOpKind {
         AstBinOp::LogicalAnd => BinOpKind::LogicalAnd,
         AstBinOp::LogicalOr => BinOpKind::LogicalOr,
         AstBinOp::LogicalXor => BinOpKind::LogicalXor,
+        AstBinOp::BitwiseAnd => BinOpKind::BitwiseAnd,
+        AstBinOp::BitwiseOr => BinOpKind::BitwiseOr,
+        AstBinOp::BitwiseXor => BinOpKind::BitwiseXor,
     }
 }
