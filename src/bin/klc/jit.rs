@@ -25,7 +25,7 @@ use crate::{ast::parse_program, ast_lowering::lower_function, klir_lowering::low
 
 // Lower a Kisumu_lang program to LLVM dialect and return the module operation
 // ANCHOR: lower_to_llvm_ir
-fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
+fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<(LLVMModule, LLVMModule)> {
     let funcs =
         parse_program(src).map_err(|e| input_error_noloc!("Failed to parse program: {}", e))?;
     let ctx = &mut Context::new();
@@ -40,10 +40,11 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     #[cfg(feature = "verbose")]
     println!("Pliron IR\n{}\n", module.get_operation().disp(ctx));
     let llvm_module = to_llvm_ir::convert_module(ctx, llvm_ctx, module)?;
+    let stdlib = LLVMModule::from_ir_in_file(llvm_ctx, "./lib/libc.ll").unwrap();
     llvm_module
         .verify()
         .map_err(|e| input_error_noloc!("Generated LLVM module is invalid: {}", e))?;
-    Ok(llvm_module)
+    Ok((llvm_module, stdlib))
 }
 // ANCHOR_END: lower_to_llvm_ir
 
@@ -54,7 +55,7 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
     initialize_native()
         .map_err(|e| input_error_noloc!("Failed to initialize native target: {}", e))?;
     let llvm_ctx = LLVMContext::default();
-    let llvm_module = lower_to_llvm_ir(src, &llvm_ctx)?;
+    let (llvm_module, stdlib) = lower_to_llvm_ir(src, &llvm_ctx)?;
 
     let Some(f) = llvm_get_named_function(&llvm_module, name) else {
         return Err(input_error_noloc!(
@@ -81,6 +82,9 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
     lljit
         .add_module(llvm_module)
         .map_err(|e| input_error_noloc!("Failed to add module to JIT: {}", e))?;
+    lljit
+        .add_module(stdlib)
+        .map_err(|e| input_error_noloc!("Failed to add module to JIT: {}", e))?;
     let main_fn = lljit
         .lookup_symbol(name)
         .map_err(|e| input_error_noloc!("Failed to find main function in JIT: {}", e))?;
@@ -89,6 +93,28 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
     Ok((main_fn(arg), llvm_out.to_string()))
 }
 // ANCHOR_END: exec_fn
+
+fn _combine_stdlib_to_llvm_out<'a>(source: &'a str, stdlib: &'a str) -> String {
+    if source.is_empty() {
+        // just remove the newlines (concatenate the lines)
+        // return stdlib.split('\n').collect();
+        return stdlib.to_string();
+    }
+
+    let mut result = String::with_capacity(source.len() + stdlib.len());
+
+    result.push_str(&source[..2]);
+
+    // all the insert pieces (split by newline, concatenated)
+    for part in stdlib.split('\n') {
+        result.push_str(part);
+    }
+
+    // rest of the original string
+    result.push_str(&source[2..]);
+
+    result
+}
 
 #[cfg(test)]
 mod tests {

@@ -1,0 +1,5 @@
+func main(n) {
+    const x = "Hello Kisumu"
+    const v = printf(x);
+    return 0;
+}
