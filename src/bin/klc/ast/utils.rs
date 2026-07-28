@@ -1,5 +1,7 @@
 // Contains utility functions for the AST.
 // Primarily the parsers and the various helper functions.
+
+#![allow(unused)]
 use crate::ast::*;
 use combine::{
     Parser, Stream, attempt, between, choice, eof,
@@ -9,27 +11,30 @@ use combine::{
         char::{alpha_num, char, digit, letter, spaces, string},
         repeat::{many, many1, sep_by},
     },
-    token,
+    satisfy, token,
 };
 use rustc_hash::FxHashMap;
 
+/*
+ *  DELETE ME WHEN DONE!!!
+ *
+ * This section goes in to help in defining types how types are to be supported in
+ * the language.
+ */
+// ######################
+#[derive(Default)]
 enum PrimTypeShim {
-    I32,
+    I32(Box<dyn Fn() -> ()>),
     U32,
     U64,
     I64,
     F64,
     F32,
-    USIZE,
-    ISIZE,
-    STRING,
+    Usize,
+    Isize,
+    String,
+    #[default]
     Unimplemented,
-}
-
-impl Default for PrimTypeShim {
-    fn default() -> PrimTypeShim {
-        PrimTypeShim::Unimplemented
-    }
 }
 
 //  This table stores parsers to primitive types
@@ -52,18 +57,19 @@ impl PrimTypeParsers {
 
     pub fn initialize_prim_parsers() -> PrimTypeParsers {
         let mut parsers = PrimTypeParsers::new().0;
-        parsers.insert("i32".to_string(), PrimTypeShim::I32); // = PrimTypeParsers::new();
+        // parsers.insert("i32".to_string(), PrimTypeShim::I32(_)); // = PrimTypeParsers::new();
         parsers.insert("u32".to_string(), PrimTypeShim::U32);
         parsers.insert("f32".to_string(), PrimTypeShim::F32);
         parsers.insert("i64".to_string(), PrimTypeShim::I64);
         parsers.insert("u64".to_string(), PrimTypeShim::U64);
-        parsers.insert("usize".to_string(), PrimTypeShim::USIZE);
-        parsers.insert("isize".to_string(), PrimTypeShim::ISIZE);
-        parsers.insert("string".to_string(), PrimTypeShim::STRING);
+        parsers.insert("usize".to_string(), PrimTypeShim::Usize);
+        parsers.insert("isize".to_string(), PrimTypeShim::Isize);
+        parsers.insert("string".to_string(), PrimTypeShim::String);
         parsers.into()
     }
 }
 
+// #################################
 // fn prim_parser_<Input>() -> impl Parser<Input, Output = String> {}
 // The actual parser for primitive types.
 // fn prim_parsers<input>() -> impl Parser<Input, Output = PrimTypeParser>
@@ -188,6 +194,7 @@ where
 {
     choice!(
         integer_(),
+        string_literal_(),
         // Function call must be tried before plain variable reference so that
         // `foo(...)` doesn't parse as variable `foo` followed by junk.
         attempt(
@@ -289,6 +296,41 @@ where
                 rhs: Box::new(rhs),
             },
         })
+}
+
+//---- String literals ------------------------------------------
+
+/// Parse a double-quoted string literal with common escapes,
+/// then skip trailing whitespace.
+fn string_literal_<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    between(token('"'), token('"'), many(string_char_()))
+        .map(|chars: String| Expr::BuiltinTypes(crate::ast::BuiltinTypes::String(chars)))
+        .skip(ws())
+}
+
+fn string_char_<Input>() -> impl Parser<Input, Output = char>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    choice((
+        // Escape sequences
+        (token('\\'), satisfy(|_| true)).map(|(_, c)| match c {
+            '"' => '"',
+            '\\' => '\\',
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            '0' => '\0',
+            other => other, // unknown escape → treat as the char itself
+        }),
+        // Ordinary character (anything except " or \)
+        satisfy(|c| c != '"' && c != '\\'),
+    ))
 }
 
 // ---- Statement parsers ---------------------------------------------------
