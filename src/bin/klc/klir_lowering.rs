@@ -20,8 +20,14 @@
 //! * `IfOp`       -> CFG: then / else / merge blocks
 //! * `WhileOp`    -> CFG: header / body / exit blocks
 
+use crate::dialect::{
+    BinOp, BinOpKind, CallOp as KalCallOp, ConstantOp as KalConstantOp, DeclOp as KalDeclOp,
+    IfOp as KalIfOp, LoadOp as KalLoadOp, ReturnOp as KalReturnOp, StoreOp as KalStoreOp,
+    StringOp as KalStringOp, WhileOp as KalWhileOp, YieldOp as KalYieldOp,
+};
 use awint::bw;
-
+use pliron::builtin::op_interfaces::SingleBlockRegionInterface;
+use pliron::identifier::Identifier;
 use pliron::{
     builtin::{
         self,
@@ -30,7 +36,7 @@ use pliron::{
             CallOpCallable, OneRegionInterface, OneResultInterface, SymbolOpInterface,
         },
         ops::{ConstantOp as BuiltinConstantOp, ModuleOp},
-        types::{IntegerType, Signedness},
+        types::{FunctionType, IntegerType, Signedness},
     },
     context::{Context, Ptr},
     derive::op_interface_impl,
@@ -46,12 +52,17 @@ use pliron::{
     op::{Op, op_cast, op_impls},
     operation::Operation,
     result::Result,
-    r#type::TypeHandle,
+    r#type::{TypeHandle, Typed},
     utils::apint::APInt,
     value::Value,
 };
 use pliron_llvm::{
     ToLLVMDialect,
+    attributes::LinkageAttr,
+    ops::{AddressOfOp, GlobalOp, InsertValueOp, ZeroOp},
+    types::{ArrayType, PointerType},
+};
+use pliron_llvm::{
     attributes::{ICmpPredicateAttr, IntegerOverflowFlagsAttr},
     op_interfaces::{BinArithOp, CastOpInterface, IntBinArithOpWithOverflowFlag},
     ops::{
@@ -61,12 +72,10 @@ use pliron_llvm::{
     },
     types::FuncType,
 };
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
-use crate::dialect::{
-    BinOp, BinOpKind, CallOp as KalCallOp, ConstantOp as KalConstantOp, DeclOp as KalDeclOp,
-    IfOp as KalIfOp, LoadOp as KalLoadOp, ReturnOp as KalReturnOp, StoreOp as KalStoreOp,
-    WhileOp as KalWhileOp, YieldOp as KalYieldOp,
-};
+static STRING_GLOBAL_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 // ─── DialectConversion driver ───────────────────────────────────────────────
 
@@ -134,6 +143,113 @@ impl ToLLVMDialect for KalConstantOp {
 }
 // ANCHOR_END: constant_to_llvm
 
+fn create_string_global_and_address(ctx: &mut Context, s: &str) -> Result<(GlobalOp, AddressOfOp)> {
+    // Null-terminated bytes (MLIR/LLVM string globals do *not* add `\0` for you).
+    let mut bytes = s.as_bytes().to_vec();
+    bytes.push(0);
+    let len = bytes.len() as u64;
+
+    // Type: [len x i8]
+    let i8_ty = IntegerType::get(ctx, 8, Signedness::Signless);
+    let array_ty: TypeHandle = ArrayType::get(ctx, i8_ty.into(), len).into();
+
+    // Unique symbol name: `.str.0`, `.str.1`, …
+    let id = STRING_GLOBAL_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let name: Identifier = format!("str_{id}")
+        .as_str()
+        .try_into()
+        .expect("valid identifier");
+
+    // llvm.global
+    let global = GlobalOp::new(ctx, name.clone(), array_ty);
+    global.set_attr_llvm_global_linkage(ctx, LinkageAttr::PrivateLinkage);
+
+    global.add_initializer_region(ctx);
+    let init_block = global.get_initializer_block(ctx).unwrap();
+    let mut ins = pliron::irbuild::inserter::IRInserter::<pliron::irbuild::listener::DummyListener>::new_at_block_end(init_block);
+
+    let zero = ZeroOp::new(ctx, array_ty);
+    let mut curr_val = zero.get_result(ctx);
+    ins.append_op(ctx, &zero);
+
+    for (i, &byte) in bytes.iter().enumerate() {
+        let byte_attr = IntegerAttr::new(i8_ty, APInt::from_u64(byte as u64, bw(8)));
+        let byte_const = BuiltinConstantOp::new(ctx, Box::new(byte_attr));
+        let byte_val = byte_const.get_result(ctx);
+        ins.append_op(ctx, &byte_const);
+
+        let insert = InsertValueOp::new(ctx, curr_val, byte_val, vec![i as u32]);
+        curr_val = insert.get_result(ctx);
+        ins.append_op(ctx, &insert);
+    }
+
+    let ret = LlvmReturnOp::new(ctx, Some(curr_val));
+    ins.append_op(ctx, &ret);
+
+    // llvm.addressof → !llvm.ptr (addrspace 0)
+    let addr = AddressOfOp::new(ctx, name, /*address_space=*/ 0);
+
+    Ok((global, addr))
+}
+
+/// Insert the global into the **module** (not the current function block).
+fn insert_global_into_module(
+    ctx: &mut Context,
+    rewriter: &mut pliron::irbuild::dialect_conversion::DialectConversionRewriter,
+    string_op: &KalStringOp,
+    global: &GlobalOp,
+) {
+    // Walk up to the ModuleOp that owns this function / op.
+    let mut cur = string_op.get_operation();
+    loop {
+        let parent = cur.deref(ctx).get_parent_op(ctx);
+        match parent {
+            Some(p) if Operation::get_op::<ModuleOp>(p, ctx).is_some() => {
+                // Append the global as a top-level op in the module.
+                // ModuleOp::append_operation is the usual API in the kaleidoscope example.
+                if let Some(module) = Operation::get_op::<ModuleOp>(p, ctx) {
+                    module.append_operation(ctx, global.get_operation(), 0);
+                }
+                return;
+            }
+            Some(p) => cur = p,
+            None => {
+                // Fallback: insert via the rewriter at the current point
+                // (still works if the conversion driver runs at module scope).
+                rewriter.insert_op(ctx, global);
+                return;
+            }
+        }
+    }
+}
+
+#[op_interface_impl]
+impl ToLLVMDialect for KalStringOp {
+    fn rewrite(
+        &self,
+        ctx: &mut Context,
+        rewriter: &mut pliron::irbuild::dialect_conversion::DialectConversionRewriter,
+        _operands_info: &pliron::irbuild::dialect_conversion::OperandsInfo,
+    ) -> Result<()> {
+        // Extract the StringAttr stored on the Kisumu_lang string op.
+        let str_attr = self.value_attr(ctx); // -> StringAttr
+        let s = str_attr.clone();
+        let s_owned: String = { s.into() };
+
+        let (global, addr) = create_string_global_and_address(ctx, &s_owned)?;
+
+        // Global lives at module scope.
+        insert_global_into_module(ctx, rewriter, self, &global);
+
+        // Address is an SSA value in the current block.
+        let ptr: Value = addr.get_result(ctx);
+        rewriter.insert_op(ctx, &addr);
+        rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![ptr]);
+
+        Ok(())
+    }
+}
+
 // ── kisumu_lang.decl -> llvm.alloca ─────────────────────────────────────────
 // ANCHOR: decl_to_llvm
 #[op_interface_impl]
@@ -169,13 +285,12 @@ impl ToLLVMDialect for KalLoadOp {
         rewriter: &mut DialectConversionRewriter,
         operands_info: &OperandsInfo,
     ) -> Result<()> {
-        let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
         // `operands_info` carries the already-converted slot operand.
         let slot = operands_info
             .lookup_most_recent_type(self.slot(ctx))
             .map_or(self.slot(ctx), |_| self.slot(ctx));
-        // Operand was already updated in-place by the framework.
-        let load = LlvmLoadOp::new(ctx, slot, i64_ty.into());
+        let res_ty = self.get_operation().deref(ctx).get_result(0).get_type(ctx);
+        let load = LlvmLoadOp::new(ctx, slot, res_ty);
         let result = load.get_result(ctx);
         rewriter.insert_op(ctx, &load);
         rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![result]);
@@ -313,7 +428,6 @@ impl ToLLVMDialect for KalCallOp {
         rewriter: &mut DialectConversionRewriter,
         _operands_info: &OperandsInfo,
     ) -> Result<()> {
-        let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
         let callee_attr = self
             .get_attr_callee(ctx)
             .expect("CallOp must have callee attribute")
@@ -323,18 +437,40 @@ impl ToLLVMDialect for KalCallOp {
         let args: Vec<Value> = (0..n_args)
             .map(|i| self.get_operation().deref(ctx).get_operand(i))
             .collect();
-        let arg_types: Vec<TypeHandle> = (0..n_args).map(|_| i64_ty.into()).collect();
-        let llvm_func_ty = FuncType::get(ctx, i64_ty.into(), arg_types, false);
-        let llvm_call = LlvmCallOp::new(
-            ctx,
-            CallOpCallable::Direct(callee_ident),
-            llvm_func_ty,
-            args,
-        );
-        let result = llvm_call.get_result(ctx);
-        rewriter.insert_op(ctx, &llvm_call);
-        rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![result]);
-        Ok(())
+        let res_ty = self.get_operation().deref(ctx).get_result(0).get_type(ctx);
+
+        if callee_ident.as_str() == "printf" {
+            let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+            let ptr_ty = PointerType::get(ctx, 0);
+            let llvm_func_ty = FuncType::get(ctx, i32_ty.into(), vec![ptr_ty.into()], true);
+            let llvm_call = LlvmCallOp::new(
+                ctx,
+                CallOpCallable::Direct(callee_ident),
+                llvm_func_ty,
+                args,
+            );
+            let call_res = llvm_call.get_result(ctx);
+            rewriter.insert_op(ctx, &llvm_call);
+            let sext = SExtOp::new(ctx, call_res, res_ty);
+            let final_res = sext.get_result(ctx);
+            rewriter.insert_op(ctx, &sext);
+            rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![final_res]);
+            Ok(())
+        } else {
+            let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+            let arg_types: Vec<TypeHandle> = args.iter().map(|arg| arg.get_type(ctx)).collect();
+            let llvm_func_ty = FuncType::get(ctx, i64_ty.into(), arg_types, false);
+            let llvm_call = LlvmCallOp::new(
+                ctx,
+                CallOpCallable::Direct(callee_ident),
+                llvm_func_ty,
+                args,
+            );
+            let result = llvm_call.get_result(ctx);
+            rewriter.insert_op(ctx, &llvm_call);
+            rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![result]);
+            Ok(())
+        }
     }
 }
 // ANCHOR_END: call_to_llvm
@@ -564,8 +700,19 @@ fn lower_func_op_to_llvm(
     ctx: &mut Context,
     rewriter: &mut DialectConversionRewriter,
 ) -> Result<()> {
-    let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
     let func_name = func_op.get_symbol_name(ctx);
+    if func_name.as_str() == "printf" {
+        let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+        let ptr_ty = PointerType::get(ctx, 0);
+        let llvm_func_ty = FuncType::get(ctx, i32_ty.into(), vec![ptr_ty.into()], true);
+        let llvm_func_op = pliron_llvm::ops::FuncOp::new(ctx, func_name, llvm_func_ty);
+        let llvm_func_op_ptr = llvm_func_op.get_operation();
+        rewriter.insert_op(ctx, &llvm_func_op);
+        rewriter.replace_operation(ctx, func_op.get_operation(), llvm_func_op_ptr);
+        return Ok(());
+    }
+
+    let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
     let func_entry = func_op.get_entry_block(ctx);
 
     // All args are i64, and the return type is i64.
@@ -597,6 +744,28 @@ fn lower_func_op_to_llvm(
 }
 
 // ─── Helper ────────────────────────────────────────────────────────────────
+
+// The method used in declaring this printf function is to be followed in order
+// to eventually do away with the hack that involves copying libc functions
+// for final linking by clang.
+//
+// This has the potential to eliminate the dependence on clang.
+pub fn declare_printf(ctx: &mut Context, module: &ModuleOp) {
+    let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+    let ptr_ty = PointerType::get(ctx, 0);
+    let func_ty = FunctionType::get(ctx, vec![ptr_ty.into()], vec![i32_ty.into()]);
+
+    let name = "printf".try_into().expect("valid identifier");
+    let printf_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+
+    // Ensure it is a *declaration* (no body), not a definition.
+    // If your FuncOp starts as a definition with an empty block, mark it
+    // external / declaration according to your pliron version, e.g.:
+    //   printf_decl.set_declaration(ctx);
+    // or simply never add a body / terminator.
+
+    module.append_operation(ctx, printf_decl.get_operation(), 0);
+}
 
 /// Map a comparison [`BinOpKind`] to the corresponding [`ICmpPredicateAttr`].
 fn binop_kind_to_icmp_pred(kind: BinOpKind) -> ICmpPredicateAttr {
