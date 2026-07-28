@@ -1,5 +1,6 @@
 //! JIT compilation example for Kisumu_lang using pliron-llvm
 
+use crate::{ast::parse_program, ast_lowering::lower_function, klir_lowering::lower_module};
 #[cfg(feature = "verbose")]
 use pliron::printable::Printable;
 use pliron::{
@@ -21,8 +22,6 @@ use pliron_llvm::{
     to_llvm_ir,
 };
 
-use crate::{ast::parse_program, ast_lowering::lower_function, klir_lowering::lower_module};
-
 // Lower a Kisumu_lang program to LLVM dialect and return the module operation
 // ANCHOR: lower_to_llvm_ir
 fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<(LLVMModule, LLVMModule)> {
@@ -34,6 +33,7 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<(LLVMModule, LL
         let func_op = lower_function(ctx, func)?;
         module.append_operation(ctx, func_op.get_operation(), 0);
     }
+    crate::klir_lowering::declare_printf(ctx, &module);
     lower_module(ctx, module)?;
     verify_operation(module.get_operation(), ctx)?;
     // Convert from LLVM dialect to LLVM IR
@@ -74,6 +74,7 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
         ));
     }
     let llvm_out = llvm_module.to_string().clone();
+    let final_ir = combine_stdlib_to_llvm_out(llvm_out.as_str(), stdlib.to_string().as_str());
     // println!("Generated LLVM IR:\n{}", llvm_module.to_string());
 
     // JIT compile and execute the main function
@@ -90,29 +91,32 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
         .map_err(|e| input_error_noloc!("Failed to find main function in JIT: {}", e))?;
 
     let main_fn: extern "C" fn(i64) -> i64 = unsafe { std::mem::transmute(main_fn) };
-    Ok((main_fn(arg), llvm_out.to_string()))
+    Ok((main_fn(arg), final_ir))
 }
 // ANCHOR_END: exec_fn
 
-fn _combine_stdlib_to_llvm_out<'a>(source: &'a str, stdlib: &'a str) -> String {
+fn combine_stdlib_to_llvm_out<'a>(source: &'a str, stdlib: &'a str) -> String {
     if source.is_empty() {
         // just remove the newlines (concatenate the lines)
         // return stdlib.split('\n').collect();
         return stdlib.to_string();
     }
-
     let mut result = String::with_capacity(source.len() + stdlib.len());
-
-    result.push_str(&source[..2]);
-
-    // all the insert pieces (split by newline, concatenated)
-    for part in stdlib.split('\n') {
+    for part in &source.split("\n").collect::<Vec<&str>>()[..2] {
         result.push_str(part);
+        result.push_str("\n");
+    }
+    // all the insert pieces (split by newline, concatenated)
+    for part in &stdlib.split('\n').collect::<Vec<&str>>()[3..] {
+        result.push_str(part);
+        result.push_str(format!("\n").as_str());
     }
 
     // rest of the original string
-    result.push_str(&source[2..]);
-
+    for part in &source.split("\n").collect::<Vec<&str>>()[2..] {
+        result.push_str(part);
+        result.push_str(format!("\n").as_str());
+    }
     result
 }
 
@@ -123,8 +127,8 @@ mod tests {
     // ANCHOR: fibonacci_jit_test
     #[test]
     fn fibonacci_jit() {
-        let src = std::fs::read_to_string("./examples/fibonacci.kl")
-            .expect("failed to read fibonacci.kal");
+        let src = std::fs::read_to_string("./src/bin/klc/examples/fibonacci.kl")
+            .expect("failed to read fibonacci.kl");
         let (result, _) = exec_fn(&src, "main", 5).expect("failed to execute main function");
         assert_eq!(result, 5);
     }
@@ -133,7 +137,7 @@ mod tests {
     // ANCHOR: factorial_jit_test
     #[test]
     fn factorial_jit() {
-        let src = std::fs::read_to_string("./examples/factorial.kl")
+        let src = std::fs::read_to_string("./src/bin/klc/examples/factorial.kl")
             .expect("failed to read factorial.kl");
         let (result, _) = exec_fn(&src, "main", 5).expect("failed to execute main function");
         assert_eq!(result, 120);
