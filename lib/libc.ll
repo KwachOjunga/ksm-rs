@@ -2,8 +2,6 @@
 @str.0 = constant [1 x i8] c"\00"
 @str.1 = constant [10 x i8] c"fib = %d\0A\00"
 
-declare i32 @printf(i8*, ...)
-
 declare i8* @malloc(i64)
 
 declare i8* @realloc(i8*, i64)
