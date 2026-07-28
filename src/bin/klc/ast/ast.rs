@@ -77,34 +77,10 @@ pub enum BinOp {
     Div,
 }
 
-impl Display for BinOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BinOp::Add => write!(f, "+"),
-            BinOp::Sub => write!(f, "-"),
-            BinOp::Mul => write!(f, "*"),
-            BinOp::Div => write!(f, "/"),
-            BinOp::Lt => write!(f, "<"),
-            BinOp::Gt => write!(f, ">"),
-            BinOp::Le => write!(f, "<="),
-            BinOp::Ge => write!(f, ">="),
-            BinOp::Eq => write!(f, "=="),
-            BinOp::Ne => write!(f, "!="),
-            BinOp::LogicalAnd => write!(f, "&&"),
-            BinOp::LogicalOr => write!(f, "||"),
-            BinOp::LogicalXor => write!(f, "^"),
-            BinOp::Mod => write!(f, "%"),
-            BinOp::BitwiseAnd => write!(f, "&"),
-            BinOp::BitwiseOr => write!(f, "|"),
-            BinOp::BitwiseXor => write!(f, "^"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
-enum BuiltinTypes {
-    Float(),
-    Int(),
+pub enum BuiltinTypes {
+    Float(f64),
+    Integer(i64),
     String(String),
     Array,
 }
@@ -114,11 +90,14 @@ enum BuiltinTypes {
 // NOTE: Replace this with the repl impl!
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    BuiltinTypes(BuiltinTypes),
     /*
      * Integer type can be replaced with a trait bound in its inner type to offer room for custom integer types.
      */
     /// A non-negative integer literal.
     Integer(i64),
+    /// A string literal.
+    // String(String),
     /// A variable reference.
     Variable(String),
     /// A binary operation.
@@ -128,7 +107,10 @@ pub enum Expr {
         rhs: Box<Expr>,
     },
     /// A function call.
-    Call { callee: String, args: Vec<Expr> },
+    Call {
+        callee: String,
+        args: Vec<Expr>,
+    },
 }
 
 /*
@@ -144,12 +126,17 @@ pub enum Expr {
 trait StructField: Debug + PartialEq {}
 
 #[derive(Debug, Clone, PartialEq)]
-enum Type<T: StructField> {
+enum Type<T>
+where
+    T: StructField,
+{
     Builtin(BuiltinTypes),
     Struct(Struct<T>),
 }
 
-impl<T: StructField> StructField for Type<T> {}
+impl<T> StructField for Type<T> where T: StructField // A: Debug + PartialEq,,
+{
+}
 
 /// A field in a struct declaration.
 #[derive(Debug, Clone, PartialEq)]
@@ -165,6 +152,7 @@ struct Struct<T: StructField> {
 }
 
 // #####################
+
 // NOTE: Replace this with the repl impl!
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -195,5 +183,29 @@ pub struct Function {
     pub body: Vec<Stmt>,
 }
 
-// allow for model methods to be defined within the struct scope
+// allow for functions to be defined within the struct scope as either fields or methods
 impl StructField for Function {}
+
+impl Display for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BinOp::Add => write!(f, "+"),
+            BinOp::Sub => write!(f, "-"),
+            BinOp::Mul => write!(f, "*"),
+            BinOp::Div => write!(f, "/"),
+            BinOp::Lt => write!(f, "<"),
+            BinOp::Gt => write!(f, ">"),
+            BinOp::Le => write!(f, "<="),
+            BinOp::Ge => write!(f, ">="),
+            BinOp::Eq => write!(f, "=="),
+            BinOp::Ne => write!(f, "!="),
+            BinOp::LogicalAnd => write!(f, "&&"),
+            BinOp::LogicalOr => write!(f, "||"),
+            BinOp::LogicalXor => write!(f, "^"),
+            BinOp::Mod => write!(f, "%"),
+            BinOp::BitwiseAnd => write!(f, "&"),
+            BinOp::BitwiseOr => write!(f, "|"),
+            BinOp::BitwiseXor => write!(f, "^"),
+        }
+    }
+}
