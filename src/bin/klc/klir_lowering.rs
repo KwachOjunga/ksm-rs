@@ -455,22 +455,21 @@ impl ToLLVMDialect for KalCallOp {
             let final_res = sext.get_result(ctx);
             rewriter.insert_op(ctx, &sext);
             rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![final_res]);
-            Ok(())
-        } else {
-            let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
-            let arg_types: Vec<TypeHandle> = args.iter().map(|arg| arg.get_type(ctx)).collect();
-            let llvm_func_ty = FuncType::get(ctx, i64_ty.into(), arg_types, false);
-            let llvm_call = LlvmCallOp::new(
-                ctx,
-                CallOpCallable::Direct(callee_ident),
-                llvm_func_ty,
-                args,
-            );
-            let result = llvm_call.get_result(ctx);
-            rewriter.insert_op(ctx, &llvm_call);
-            rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![result]);
-            Ok(())
+            return Ok(());
         }
+        let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+        let arg_types: Vec<TypeHandle> = args.iter().map(|arg| arg.get_type(ctx)).collect();
+        let llvm_func_ty = FuncType::get(ctx, i64_ty.into(), arg_types, false);
+        let llvm_call = LlvmCallOp::new(
+            ctx,
+            CallOpCallable::Direct(callee_ident),
+            llvm_func_ty,
+            args,
+        );
+        let result = llvm_call.get_result(ctx);
+        rewriter.insert_op(ctx, &llvm_call);
+        rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![result]);
+        Ok(())
     }
 }
 // ANCHOR_END: call_to_llvm

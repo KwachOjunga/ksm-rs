@@ -183,6 +183,7 @@ where
 
 /// Parse a `primary` expression:
 ///   - integer literal
+///   - string literal
 ///   - function call: `name(args...)`
 ///   - variable reference
 ///   - parenthesized expression: `(expr)`
