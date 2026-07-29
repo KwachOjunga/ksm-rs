@@ -477,6 +477,31 @@ impl ToLLVMDialect for KalCallOp {
             return Ok(());
         }
 
+        if callee_ident.as_str() == "realloc" {
+            let i8_ty = PointerType::get(ctx, 0);
+            let first_arg = PointerType::get(ctx, 0);
+            let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+            let llvm_func_ty = FuncType::get(
+                ctx,
+                i8_ty.into(),
+                vec![first_arg.into(), i64_ty.into()],
+                false,
+            );
+            let llvm_call = LlvmCallOp::new(
+                ctx,
+                CallOpCallable::Direct(callee_ident),
+                llvm_func_ty,
+                args,
+            );
+            let call_res = llvm_call.get_result(ctx);
+            rewriter.insert_op(ctx, &llvm_call);
+            let sext = SExtOp::new(ctx, call_res, res_ty);
+            let final_res = sext.get_result(ctx);
+            rewriter.insert_op(ctx, &sext);
+            rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![final_res]);
+            return Ok(());
+        }
+
         let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
         let arg_types: Vec<TypeHandle> = args.iter().map(|arg| arg.get_type(ctx)).collect();
         let llvm_func_ty = FuncType::get(ctx, i64_ty.into(), arg_types, false);
@@ -741,6 +766,23 @@ fn lower_func_op_to_llvm(
         rewriter.replace_operation(ctx, func_op.get_operation(), llvm_func_op_ptr);
         return Ok(());
     }
+
+    if func_name.as_str() == "realloc" {
+        let i8_ptr_ty = PointerType::get(ctx, 0);
+        let first_arg = i8_ptr_ty.clone();
+        let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+        let llvm_func_ty = FuncType::get(
+            ctx,
+            i8_ptr_ty.into(),
+            vec![first_arg.into(), i64_ty.into()],
+            false,
+        );
+        let llvm_func_op = pliron_llvm::ops::FuncOp::new(ctx, func_name, llvm_func_ty);
+        let llvm_func_op_ptr = llvm_func_op.get_operation();
+        rewriter.insert_op(ctx, &llvm_func_op);
+        rewriter.replace_operation(ctx, func_op.get_operation(), llvm_func_op_ptr);
+        return Ok(());
+    }
     let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
     let func_entry = func_op.get_entry_block(ctx);
 
@@ -802,6 +844,21 @@ pub fn declare_malloc(ctx: &mut Context, module: &ModuleOp) {
     let func_ty = FunctionType::get(ctx, vec![ptr_ty.into()], vec![i8_ptr_ty.into()]);
 
     let name = "malloc".try_into().expect("valid identifier");
+    let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+    module.append_operation(ctx, malloc_decl.get_operation(), 0);
+}
+
+pub fn declare_realloc(ctx: &mut Context, module: &ModuleOp) {
+    let i8_ptr_ty = PointerType::get(ctx, 0);
+    let ptr_ty = PointerType::get(ctx, 0);
+    let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+    let func_ty = FunctionType::get(
+        ctx,
+        vec![ptr_ty.into(), i64_ty.into()],
+        vec![i8_ptr_ty.into()],
+    );
+
+    let name = "realloc".try_into().expect("valid identifier");
     let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
     module.append_operation(ctx, malloc_decl.get_operation(), 0);
 }
