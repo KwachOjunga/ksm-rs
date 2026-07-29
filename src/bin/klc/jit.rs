@@ -34,6 +34,7 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
         module.append_operation(ctx, func_op.get_operation(), 0);
     }
     crate::klir_lowering::declare_printf(ctx, &module);
+    crate::klir_lowering::declare_malloc(ctx, &module);
     lower_module(ctx, module)?;
     verify_operation(module.get_operation(), ctx)?;
     // Convert from LLVM dialect to LLVM IR
