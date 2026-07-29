@@ -502,7 +502,7 @@ impl ToLLVMDialect for KalCallOp {
             return Ok(());
         }
 
-        if callee_ident.as_str() == "realloc" {
+        if callee_ident.as_str() == "realloc" || callee_ident.as_str() == "strndup" {
             let i8_ty = PointerType::get(ctx, 0);
             let first_arg = PointerType::get(ctx, 0);
             let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
@@ -817,7 +817,7 @@ fn lower_func_op_to_llvm(
         return Ok(());
     }
 
-    if func_name.as_str() == "realloc" {
+    if func_name.as_str() == "realloc" || func_name.as_str() == "strndup" {
         let i8_ptr_ty = PointerType::get(ctx, 0);
         let first_arg = i8_ptr_ty.clone();
         let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
@@ -832,7 +832,7 @@ fn lower_func_op_to_llvm(
         rewriter.insert_op(ctx, &llvm_func_op);
         rewriter.replace_operation(ctx, func_op.get_operation(), llvm_func_op_ptr);
         return Ok(());
-    }
+    };
 
     if func_name.as_str() == "strcat" || func_name.as_str() == "strcpy" {
         let i8_ptr_ty = PointerType::get(ctx, 0);
@@ -899,13 +899,8 @@ fn lower_func_op_to_llvm(
     Ok(())
 }
 
-// ─── Helper ────────────────────────────────────────────────────────────────
-
-// The method used in declaring this printf function is to be followed in order
-// to eventually do away with the hack that involves copying libc functions
-// for final linking by clang.
-//
-// This has the potential to eliminate the dependence on clang.
+// ─── Helpers ────────────────────────────────────────────────────────────────
+// libc-decl functions
 pub fn declare_printf(ctx: &mut Context, module: &ModuleOp) {
     let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
     let ptr_ty = PointerType::get(ctx, 0);
@@ -988,6 +983,21 @@ pub fn declare_strncpy(ctx: &mut Context, module: &ModuleOp) {
     );
 
     let name = "strncpy".try_into().expect("valid identifier");
+    let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+    module.append_operation(ctx, malloc_decl.get_operation(), 0);
+}
+
+pub fn declare_strndup(ctx: &mut Context, module: &ModuleOp) {
+    let i8_ptr_ty = PointerType::get(ctx, 0);
+    let ptr_ty = PointerType::get(ctx, 0);
+    let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+    let func_ty = FunctionType::get(
+        ctx,
+        vec![ptr_ty.into(), i64_ty.into()],
+        vec![i8_ptr_ty.into()],
+    );
+
+    let name = "strndup".try_into().expect("valid identifier");
     let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
     module.append_operation(ctx, malloc_decl.get_operation(), 0);
 }
