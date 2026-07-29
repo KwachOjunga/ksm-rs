@@ -60,7 +60,7 @@ use pliron_llvm::{
     ToLLVMDialect,
     attributes::LinkageAttr,
     ops::{AddressOfOp, GlobalOp, InsertValueOp, ZeroOp},
-    types::{ArrayType, PointerType},
+    types::{ArrayType, PointerType, VoidType},
 };
 use pliron_llvm::{
     attributes::{ICmpPredicateAttr, IntegerOverflowFlagsAttr},
@@ -552,6 +552,25 @@ impl ToLLVMDialect for KalCallOp {
             return Ok(());
         }
 
+        if callee_ident.as_str() == "exit" {
+            let void_ret = VoidType::get(ctx);
+            let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+            let llvm_func_ty = FuncType::get(ctx, void_ret.into(), vec![i32_ty.into()], false);
+            let llvm_call = LlvmCallOp::new(
+                ctx,
+                CallOpCallable::Direct(callee_ident),
+                llvm_func_ty,
+                args,
+            );
+            let call_res = llvm_call.get_result(ctx);
+            rewriter.insert_op(ctx, &llvm_call);
+            let sext = SExtOp::new(ctx, call_res, res_ty);
+            let final_res = sext.get_result(ctx);
+            rewriter.insert_op(ctx, &sext);
+            rewriter.replace_operation_with_values(ctx, self.get_operation(), vec![final_res]);
+            return Ok(());
+        }
+
         let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
         let arg_types: Vec<TypeHandle> = args.iter().map(|arg| arg.get_type(ctx)).collect();
         let llvm_func_ty = FuncType::get(ctx, i64_ty.into(), arg_types, false);
@@ -868,6 +887,17 @@ fn lower_func_op_to_llvm(
         return Ok(());
     }
 
+    if func_name.as_str() == "exit" {
+        let void_ret = VoidType::get(ctx);
+        let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+        let llvm_func_ty = FuncType::get(ctx, void_ret.into(), vec![i32_ty.into()], false);
+        let llvm_func_op = pliron_llvm::ops::FuncOp::new(ctx, func_name, llvm_func_ty);
+        let llvm_func_op_ptr = llvm_func_op.get_operation();
+        rewriter.insert_op(ctx, &llvm_func_op);
+        rewriter.replace_operation(ctx, func_op.get_operation(), llvm_func_op_ptr);
+        return Ok(());
+    }
+
     let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
     let func_entry = func_op.get_entry_block(ctx);
 
@@ -939,8 +969,8 @@ pub fn declare_realloc(ctx: &mut Context, module: &ModuleOp) {
     );
 
     let name = "realloc".try_into().expect("valid identifier");
-    let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
-    module.append_operation(ctx, malloc_decl.get_operation(), 0);
+    let realloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+    module.append_operation(ctx, realloc_decl.get_operation(), 0);
 }
 
 pub fn declare_strcat(ctx: &mut Context, module: &ModuleOp) {
@@ -954,8 +984,8 @@ pub fn declare_strcat(ctx: &mut Context, module: &ModuleOp) {
     );
 
     let name = "strcat".try_into().expect("valid identifier");
-    let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
-    module.append_operation(ctx, malloc_decl.get_operation(), 0);
+    let strcat_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+    module.append_operation(ctx, strcat_decl.get_operation(), 0);
 }
 
 pub fn declare_strcpy(ctx: &mut Context, module: &ModuleOp) {
@@ -968,8 +998,8 @@ pub fn declare_strcpy(ctx: &mut Context, module: &ModuleOp) {
     );
 
     let name = "strcpy".try_into().expect("valid identifier");
-    let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
-    module.append_operation(ctx, malloc_decl.get_operation(), 0);
+    let strcpy_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+    module.append_operation(ctx, strcpy_decl.get_operation(), 0);
 }
 
 pub fn declare_strncpy(ctx: &mut Context, module: &ModuleOp) {
@@ -983,8 +1013,8 @@ pub fn declare_strncpy(ctx: &mut Context, module: &ModuleOp) {
     );
 
     let name = "strncpy".try_into().expect("valid identifier");
-    let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
-    module.append_operation(ctx, malloc_decl.get_operation(), 0);
+    let strncpy_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+    module.append_operation(ctx, strncpy_decl.get_operation(), 0);
 }
 
 pub fn declare_strndup(ctx: &mut Context, module: &ModuleOp) {
@@ -998,6 +1028,16 @@ pub fn declare_strndup(ctx: &mut Context, module: &ModuleOp) {
     );
 
     let name = "strndup".try_into().expect("valid identifier");
+    let strndup_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+    module.append_operation(ctx, strndup_decl.get_operation(), 0);
+}
+
+pub fn declare_exit(ctx: &mut Context, module: &ModuleOp) {
+    let i8_ptr_ty = VoidType::get(ctx);
+    let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+    let func_ty = FunctionType::get(ctx, vec![i32_ty.into()], vec![i8_ptr_ty.into()]);
+
+    let name = "exit".try_into().expect("valid identifier");
     let malloc_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
     module.append_operation(ctx, malloc_decl.get_operation(), 0);
 }
