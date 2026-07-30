@@ -1,6 +1,8 @@
 //! JIT compilation example for Kisumu_lang using pliron-llvm
 
-use crate::{ast::parse_program, ast_lowering::lower_function, klir_lowering::lower_module};
+use crate::ast::parse_program;
+use crate::lowering::libc;
+use crate::lowering::lower_function;
 #[cfg(feature = "verbose")]
 use pliron::printable::Printable;
 use pliron::{
@@ -23,7 +25,6 @@ use pliron_llvm::{
 };
 
 // Lower a Kisumu_lang program to LLVM dialect and return the module operation
-// ANCHOR: lower_to_llvm_ir
 fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     let funcs =
         parse_program(src).map_err(|e| input_error_noloc!("Failed to parse program: {}", e))?;
@@ -35,30 +36,32 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     }
 
     // stdlib functions
-    crate::klir_lowering::declare_printf(ctx, &module);
-    crate::klir_lowering::declare_malloc(ctx, &module);
-    crate::klir_lowering::declare_realloc(ctx, &module);
-    crate::klir_lowering::declare_strcat(ctx, &module);
-    crate::klir_lowering::declare_strncpy(ctx, &module);
-    crate::klir_lowering::declare_strcpy(ctx, &module);
-    crate::klir_lowering::declare_strndup(ctx, &module);
-    crate::klir_lowering::declare_exit(ctx, &module);
-    lower_module(ctx, module)?;
+    libc::declare_printf(ctx, &module);
+    libc::declare_malloc(ctx, &module);
+    libc::declare_realloc(ctx, &module);
+    libc::declare_strcat(ctx, &module);
+    libc::declare_strncpy(ctx, &module);
+    libc::declare_strcpy(ctx, &module);
+    libc::declare_strndup(ctx, &module);
+    libc::declare_exit(ctx, &module);
+
+    crate::lowering::klir::lower_module(ctx, module)?;
+
     verify_operation(module.get_operation(), ctx)?;
-    // Convert from LLVM dialect to LLVM IR
+
     #[cfg(feature = "verbose")]
     println!("Pliron IR\n{}\n", module.get_operation().disp(ctx));
+
+    // Convert from LLVM dialect to LLVM IR
     let llvm_module = to_llvm_ir::convert_module(ctx, llvm_ctx, module)?;
     llvm_module
         .verify()
         .map_err(|e| input_error_noloc!("Generated LLVM module is invalid: {}", e))?;
     Ok(llvm_module)
 }
-// ANCHOR_END: lower_to_llvm_ir
 
 /// Execute the function `name` of a Kisumu_lang program using JIT compilation
-/// The function must have the signature `fn(i64) -> i64`
-// ANCHOR: exec_fn
+/// The function must have the signature `fn(i64) -> i64` -- NOTE: This is subject to change
 pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
     initialize_native()
         .map_err(|e| input_error_noloc!("Failed to initialize native target: {}", e))?;
@@ -97,13 +100,11 @@ pub fn exec_fn(src: &str, name: &str, arg: i64) -> Result<(i64, String)> {
     let main_fn: extern "C" fn(i64) -> i64 = unsafe { std::mem::transmute(main_fn) };
     Ok((main_fn(arg), llvm_out))
 }
-// ANCHOR_END: exec_fn
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ANCHOR: fibonacci_jit_test
     #[test]
     fn fibonacci_jit() {
         let src = std::fs::read_to_string("./src/bin/klc/examples/fibonacci.kl")
@@ -111,9 +112,7 @@ mod tests {
         let (result, _) = exec_fn(&src, "main", 5).expect("failed to execute main function");
         assert_eq!(result, 5);
     }
-    // ANCHOR_END: fibonacci_jit_test
 
-    // ANCHOR: factorial_jit_test
     #[test]
     fn factorial_jit() {
         let src = std::fs::read_to_string("./src/bin/klc/examples/factorial.kl")
@@ -121,9 +120,7 @@ mod tests {
         let (result, _) = exec_fn(&src, "main", 5).expect("failed to execute main function");
         assert_eq!(result, 120);
     }
-    // ANCHOR_END: factorial_jit_test
 
-    // ANCHOR: if_else_jit_test
     #[test]
     fn if_else_jit() {
         let src = "
@@ -144,5 +141,4 @@ mod tests {
         let (result, _) = exec_fn(src, "abs", 0).expect("failed to execute main function");
         assert_eq!(result, 0);
     }
-    // ANCHOR_END: if_else_jit_test
 }
