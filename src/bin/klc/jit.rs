@@ -24,6 +24,12 @@ use pliron_llvm::{
     to_llvm_ir,
 };
 
+#[cfg(feature = "optimize")]
+use pliron::{
+    opts::{dce::dce, mem2reg::mem2reg, simplify_cfg::simplify_cfg},
+    pass_manager::AnalysisManager,
+};
+
 // Lower a Kisumu_lang program to LLVM dialect and return the module operation
 fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     let funcs =
@@ -48,6 +54,18 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     crate::lowering::klir::lower_module(ctx, module)?;
 
     verify_operation(module.get_operation(), ctx)?;
+
+    #[cfg(feature = "optimize")]
+    fn optimize(module: ModuleOp, ctx: &mut Context) -> Result<()> {
+        let mut manager = AnalysisManager::default();
+        let _ = simplify_cfg(module.get_operation(), ctx);
+        let _ = dce(module.get_operation(), ctx);
+        let _ = mem2reg(module.get_operation(), ctx, &mut manager);
+        Ok(())
+    }
+
+    #[cfg(feature = "optimize")]
+    optimize(module, ctx)?;
 
     #[cfg(feature = "verbose")]
     println!("Pliron IR\n{}\n", module.get_operation().disp(ctx));
