@@ -35,6 +35,7 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     let funcs =
         parse_program(src).map_err(|e| input_error_noloc!("Failed to parse program: {}", e))?;
     let ctx = &mut Context::new();
+    // TODO: Picking module name needs to vary with the input file name
     let module = ModuleOp::new(ctx, "test".try_into().expect("valid module name"));
     for func in &funcs {
         let func_op = lower_function(ctx, func)?;
@@ -50,22 +51,24 @@ fn lower_to_llvm_ir(src: &str, llvm_ctx: &LLVMContext) -> Result<LLVMModule> {
     libc::declare_strcpy(ctx, &module);
     libc::declare_strndup(ctx, &module);
     libc::declare_exit(ctx, &module);
+    libc::declare_free(ctx, &module);
 
     crate::lowering::klir::lower_module(ctx, module)?;
 
     verify_operation(module.get_operation(), ctx)?;
 
     #[cfg(feature = "optimize")]
-    fn optimize(module: ModuleOp, ctx: &mut Context) -> Result<()> {
-        let mut manager = AnalysisManager::default();
-        let _ = simplify_cfg(module.get_operation(), ctx);
-        let _ = dce(module.get_operation(), ctx);
-        let _ = mem2reg(module.get_operation(), ctx, &mut manager);
-        Ok(())
-    }
+    {
+        fn optimize(module: ModuleOp, ctx: &mut Context) -> Result<()> {
+            let mut manager = AnalysisManager::default();
+            let _ = simplify_cfg(module.get_operation(), ctx);
+            let _ = dce(module.get_operation(), ctx);
+            let _ = mem2reg(module.get_operation(), ctx, &mut manager);
+            Ok(())
+        }
 
-    #[cfg(feature = "optimize")]
-    optimize(module, ctx)?;
+        optimize(module, ctx)?;
+    }
 
     #[cfg(feature = "verbose")]
     println!("Pliron IR\n{}\n", module.get_operation().disp(ctx));

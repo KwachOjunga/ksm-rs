@@ -853,6 +853,17 @@ fn lower_func_op_to_llvm(
         return Ok(());
     };
 
+    if func_name.as_str() == "free" {
+        let void_ty = VoidType::get(ctx);
+        let first_arg = PointerType::get(ctx, 0);
+        let llvm_func_ty = FuncType::get(ctx, void_ty.into(), vec![first_arg.into()], false);
+        let llvm_func_op = pliron_llvm::ops::FuncOp::new(ctx, func_name, llvm_func_ty);
+        let llvm_func_op_ptr = llvm_func_op.get_operation();
+        rewriter.insert_op(ctx, &llvm_func_op);
+        rewriter.replace_operation(ctx, func_op.get_operation(), llvm_func_op_ptr);
+        return Ok(());
+    };
+
     if func_name.as_str() == "strcat" || func_name.as_str() == "strcpy" {
         let i8_ptr_ty = PointerType::get(ctx, 0);
         let first_arg = i8_ptr_ty.clone();

@@ -111,6 +111,15 @@ pub mod libc {
         module.append_operation(ctx, strndup_decl.get_operation(), 0);
     }
 
+    pub fn declare_free(ctx: &mut Context, module: &ModuleOp) {
+        let void_ty = VoidType::get(ctx);
+        let ptr_ty = PointerType::get(ctx, 0);
+        let func_ty = FunctionType::get(ctx, vec![ptr_ty.into()], vec![void_ty.into()]);
+        let name = "free".try_into().expect("valid identifier");
+        let free_decl = pliron::builtin::ops::FuncOp::new(ctx, name, func_ty);
+        module.append_operation(ctx, free_decl.get_operation(), 0);
+    }
+
     pub fn declare_exit(ctx: &mut Context, module: &ModuleOp) {
         let i8_ptr_ty = VoidType::get(ctx);
         let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
