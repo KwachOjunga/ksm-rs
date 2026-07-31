@@ -1,0 +1,7 @@
+func main(n) {
+    const x = "Hello Kisumu";
+    printf(x);
+    printf("\n");
+    printf("%s. This is Kisumu-Lang", x);
+    return 0;
+}

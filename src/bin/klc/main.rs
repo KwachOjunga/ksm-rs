@@ -1,10 +1,9 @@
 // This will be the primary entry point of our compiler.
 // Just open files, read them into memory and find a way of ateast parsing them.
 mod ast;
-mod ast_lowering;
 mod dialect;
 mod jit;
-mod klir_lowering;
+mod lowering;
 
 use std::{
     io::Write,
@@ -17,7 +16,7 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(version, about = "Kisumu_lang JIT example", long_about = None)]
 struct Cli {
-    /// Input Kaleidoscope source file
+    /// Input Kisumu-Lang source file
     #[arg(long = "input", value_name = "FILE")]
     input: PathBuf,
 

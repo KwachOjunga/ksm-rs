@@ -1,9 +1,10 @@
 Unimplemented.
 
 - Evaluating for loops
+- Eliding comments when parsing
 - Defining variables after evaluating if statements causes a parser error. (BUG!!)
 - The modulus operator also does not work.
-- Decide in whether or not pointers will be exposed in the language.
+- Decide on whether or not pointers will be exposed in the language syntax.
 - Get the main function to execute as a standalone bin file.
 - Should we have a postfix syntax
   ```

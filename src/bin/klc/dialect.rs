@@ -9,7 +9,7 @@ pub use crate::ast::BinOp as BinOpKind;
 use awint::bw;
 use pliron::{
     builtin::{
-        attributes::{IdentifierAttr, IntegerAttr, TypeAttr},
+        attributes::{IdentifierAttr, IntegerAttr, StringAttr, TypeAttr},
         op_interfaces::{
             AtLeastNOpdsInterface, AtLeastNResultsInterface, IsTerminatorInterface, NOpdsInterface,
             NRegionsInterface, NResultsInterface, OneResultInterface, OperandNOfType,
@@ -69,6 +69,40 @@ impl ConstantOp {
     }
 }
 // ANCHOR_END: constant_op_new
+
+#[pliron_op(
+    name = "kisumu_lang.string",
+    format = "attr($value, $StringAttr) ` : ` type($0)",
+    interfaces = [NOpdsInterface<0>, OneResultInterface, NResultsInterface<1>],
+    attributes = (str_value: pliron::builtin::attributes::StringAttr),
+    verifier = "succ",
+)]
+pub struct StringOp;
+
+impl StringOp {
+    /// String constant. Result type is a pointer to the first character.
+    pub fn new_string(ctx: &mut Context, value: String) -> Self {
+        let ptr_ty = PointerType::get(ctx, 0).into();
+        let value_attr = StringAttr::new(value);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![ptr_ty],
+            vec![],
+            vec![],
+            0,
+        );
+        let op = StringOp { op };
+        op.set_attr_str_value(ctx, value_attr);
+        op
+    }
+
+    pub fn value_attr(&self, ctx: &Context) -> StringAttr {
+        self.get_attr_str_value(ctx)
+            .expect("StringOp must carry a value attribute")
+            .clone()
+    }
+}
 
 /// Declares mutable storage for AST declarations (`const name` / `const name = ...`).
 ///

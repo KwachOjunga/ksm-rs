@@ -10,6 +10,7 @@
 //! (one region + a condition-pointer slot).  All values are 64-bit signless
 //! integers (`i64`).
 
+use pliron::r#type::{TypeHandle, Typed};
 use pliron::{
     basic_block::BasicBlock,
     builtin::{
@@ -29,21 +30,22 @@ use pliron::{
     result::Result,
     value::Value,
 };
+use pliron_llvm::types::PointerType;
 use rustc_hash::FxHashMap;
 
 use crate::{
     ast::{BinOp as AstBinOp, Expr, Function, Stmt},
     dialect::{
-        BinOp, BinOpKind, CallOp, ConstantOp, DeclOp, IfOp, LoadOp, ReturnOp, StoreOp, WhileOp,
-        YieldOp,
+        BinOp, BinOpKind, CallOp, ConstantOp, DeclOp, IfOp, LoadOp, ReturnOp, StoreOp, StringOp,
+        WhileOp, YieldOp,
     },
 };
 
 /// Inserter type used throughout this module.
 type OpInserter = IRInserter<DummyListener>;
 
-/// Maps variable names to the slot-pointer [`Value`] produced by their [`DeclOp`].
-type VarMap = FxHashMap<String, Value>;
+/// Maps variable names to the slot-pointer [`Value`] and variable type produced by their [`DeclOp`].
+type VarMap = FxHashMap<String, (Value, TypeHandle)>;
 
 /// Lower a single Kismu_lang [`Function`] AST node into a [`FuncOp`].
 ///
@@ -78,7 +80,7 @@ pub fn lower_function(ctx: &mut Context, func: &Function) -> Result<FuncOp> {
         ins.append_op(ctx, &slot);
         let store = StoreOp::new(ctx, slot_val, param_val);
         ins.append_op(ctx, &store);
-        var_map.insert(param_name.clone(), slot_val);
+        var_map.insert(param_name.clone(), (slot_val, i64_ty.into()));
     }
     // ANCHOR_END: lower_function_params
 
@@ -129,10 +131,21 @@ fn lower_stmt(
     match stmt {
         // ── var name; / var name = expr; ──────────────────────────────────
         Stmt::VarDecl { name, init } => {
-            let slot = DeclOp::new(ctx, i64_ty.into());
+            let elem_ty = match init {
+                Some(expr) => match expr {
+                    Expr::BuiltinTypes(crate::ast::BuiltinTypes::String(_)) => {
+                        PointerType::get(ctx, 0).into()
+                    }
+                    // this is a placeholder to be replaced with the actual types in future
+                    _ => lower_expr(ctx, ins, var_map, expr)?.get_type(ctx),
+                },
+                // NOTE: we are still defaulting to i64 for now
+                None => i64_ty.into(),
+            };
+            let slot = DeclOp::new(ctx, elem_ty.into());
             let slot_val = slot.get_result(ctx);
             ins.append_op(ctx, &slot);
-            var_map.insert(name.clone(), slot_val);
+            var_map.insert(name.clone(), (slot_val, elem_ty));
 
             if let Some(init_expr) = init {
                 let val = lower_expr(ctx, ins, var_map, init_expr)?;
@@ -140,12 +153,28 @@ fn lower_stmt(
                 ins.append_op(ctx, &store);
             }
             Ok(false)
+            // alternatively
+            // let (slot_val, elem_ty) = if let Some(init_expr) = init {
+            //             let val = lower_expr(ctx, ins, var_map, init_expr)?;
+            //             let elem_ty = val.get_type(ctx);
+            //             let slot = DeclOp::new(ctx, elem_ty);
+            //             let slot_val = slot.get_result(ctx);
+            //             ins.append_op(ctx, &slot);
+            //             let store = StoreOp::new(ctx, slot_val, val);
+            //             ins.append_op(ctx, &store);
+            //             (slot_val, elem_ty) --> this ret type is not what is expected.
+            //         } else {
+            //             let slot = DeclOp::new(ctx, i64_ty.into());
+            //             let slot_val = slot.get_result(ctx);
+            //             ins.append_op(ctx, &slot);
+            //             (slot_val, i64_ty.into())
+            //         }
         }
 
         // ── name = expr; ──────────────────────────────────────────────────
         Stmt::Assign { name, value } => {
             let val = lower_expr(ctx, ins, var_map, value)?;
-            let slot = *var_map.get(name.as_str()).ok_or_else(|| {
+            let (slot, _) = *var_map.get(name.as_str()).ok_or_else(|| {
                 input_error!(
                     Location::Unknown,
                     "assignment to undeclared variable: {name}"
@@ -260,6 +289,15 @@ fn lower_expr(
     let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
 
     match expr {
+        Expr::BuiltinTypes(_val) => match _val {
+            crate::ast::BuiltinTypes::String(value) => {
+                let op = StringOp::new_string(ctx, value.clone());
+                let val = op.get_result(ctx);
+                ins.append_op(ctx, &op);
+                Ok(val)
+            }
+            _ => todo!(),
+        },
         Expr::Integer(n) => {
             let op = ConstantOp::new_i64(ctx, *n);
             let val = op.get_result(ctx);
@@ -268,13 +306,13 @@ fn lower_expr(
         }
 
         Expr::Variable(name) => {
-            let slot = *var_map.get(name.as_str()).ok_or_else(|| {
+            let (slot, elem_ty) = *var_map.get(name.as_str()).ok_or_else(|| {
                 input_error!(
                     Location::Unknown,
                     "reference to undeclared variable: {name}"
                 )
             })?;
-            let load = LoadOp::new(ctx, slot, i64_ty.into());
+            let load = LoadOp::new(ctx, slot, elem_ty);
             let val = load.get_result(ctx);
             ins.append_op(ctx, &load);
             Ok(val)
@@ -320,5 +358,13 @@ fn ast_binop_to_kind(op: &AstBinOp) -> BinOpKind {
         AstBinOp::Ge => BinOpKind::Ge,
         AstBinOp::Eq => BinOpKind::Eq,
         AstBinOp::Ne => BinOpKind::Ne,
+        AstBinOp::Mod => BinOpKind::Mod,
+        AstBinOp::Div => BinOpKind::Div,
+        AstBinOp::LogicalAnd => BinOpKind::LogicalAnd,
+        AstBinOp::LogicalOr => BinOpKind::LogicalOr,
+        AstBinOp::LogicalXor => BinOpKind::LogicalXor,
+        AstBinOp::BitwiseAnd => BinOpKind::BitwiseAnd,
+        AstBinOp::BitwiseOr => BinOpKind::BitwiseOr,
+        AstBinOp::BitwiseXor => BinOpKind::BitwiseXor,
     }
 }
