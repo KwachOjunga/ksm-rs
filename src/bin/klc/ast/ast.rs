@@ -155,6 +155,12 @@ struct Struct<T: StructField> {
 
 // NOTE: Replace this with the repl impl!
 #[derive(Debug, Clone, PartialEq)]
+pub struct SwitchCase {
+    pub pattern: Option<Expr>,
+    pub body: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     /// Variable declaration: `var name;` or `var name = expr;`
     VarDecl { name: String, init: Option<Expr> },
@@ -170,6 +176,8 @@ pub enum Stmt {
         then_body: Vec<Stmt>,
         else_body: Vec<Stmt>,
     },
+    /// Switch statement: `switch (cond) { case expr; ... default; ... }`.
+    Switch { cond: Expr, cases: Vec<SwitchCase> },
     /// An expression used as a statement: `expr;`
     Expr(Expr),
 }

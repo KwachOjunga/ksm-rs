@@ -418,6 +418,59 @@ where
 }
 // ANCHOR_END: if_stmt_parser
 
+fn switch_body_stmt_<Input>() -> impl Parser<Input, Output = Stmt>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    not_followed_by(choice!(
+        keyword("case"),
+        keyword("default"),
+        tok('}')
+    ))
+    .with(stmt_())
+}
+
+fn switch_case_<Input>() -> impl Parser<Input, Output = SwitchCase>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    choice!(
+        attempt(
+            (
+                keyword("case"),
+                combine::parser(expr_fn::<Input>),
+                tok(';'),
+                many(combine::parser(switch_body_stmt_::<Input>)),
+            )
+                .map(|(_, pattern, _, body)| SwitchCase {
+                    pattern: Some(pattern),
+                    body,
+                })
+        ),
+        attempt(
+            (
+                keyword("default"),
+                tok(';'),
+                many(combine::parser(switch_body_stmt_::<Input>)),
+            )
+                .map(|(_, _, body)| SwitchCase { pattern: None, body })
+        )
+    )
+}
+
+fn switch_stmt_<Input>() -> impl Parser<Input, Output = Stmt>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    keyword("switch")
+        .and(between(tok('('), tok(')'), combine::parser(expr_fn::<Input>)))
+        .and(between(tok('{'), tok('}'), many(combine::parser(switch_case_::<Input>))))
+        .map(|((_, cond), cases)| Stmt::Switch { cond, cases })
+}
+
 /// Parse an expression statement: `expr;`
 fn expr_stmt_<Input>() -> impl Parser<Input, Output = Stmt>
 where
@@ -439,6 +492,7 @@ where
         return_stmt_(),
         while_stmt_(),
         if_stmt_(),
+        switch_stmt_(),
         attempt(assign_stmt_()),
         expr_stmt_()
     )

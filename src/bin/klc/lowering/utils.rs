@@ -129,7 +129,7 @@ pub mod libc {
         module.append_operation(ctx, malloc_decl.get_operation(), 0);
     }
 
-
+/*
     pub mod lowering {
         use super::*;
         use pliron::builtin::op_interfaces::{CallOpCallable, OneResultInterface};
@@ -142,7 +142,7 @@ pub mod libc {
         use pliron_llvm::types::FuncType;
         use pliron::r#type::TypeHandle;
 
-        fn printf(op: &crate::dialect::CallOp,, ctx: &mut Context, rewriter: &mut DialectConversionRewriter, args: Vec<pliron::value::Value>, callee_ident: Identifier, res_ty: TypeHandle) -> pliron::result::Result<()> {
+        fn printf(op: &crate::dialect::CallOp, ctx: &mut Context, rewriter: &mut DialectConversionRewriter, args: Vec<pliron::value::Value>, callee_ident: Identifier, res_ty: TypeHandle) -> pliron::result::Result<()> {
             let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
             let ptr_ty = PointerType::get(ctx, 0);
             let llvm_func_ty = FuncType::get(ctx, i32_ty.into(), vec![ptr_ty.into()], true);
@@ -165,7 +165,7 @@ pub mod libc {
             return Ok(());
         }
 
-        fn malloc( op: &crate::dialect::CallOp, ctx: &mut Context, rewriter: &mut DialectConversionRewriter, args:Vec<pliron::value::Value>, callee_ident: Identifier) ->  pliron::result::Result<()> {
+        fn malloc( op: &crate::dialect::CallOp, ctx: &mut Context, rewriter: &mut DialectConversionRewriter, args:Vec<pliron::value::Value>, callee_ident: Identifier, res_ty: TypeHandle) ->  pliron::result::Result<()> {
             let i8_ty = PointerType::get(ctx, 0);
             let ptr_ty = IntegerType::get(ctx, 64, Signedness::Signless);
             let llvm_func_ty = FuncType::get(ctx, i8_ty.into(), vec![ptr_ty.into()], false);
@@ -388,5 +388,5 @@ pub mod libc {
             );
             map
         }
-    }
+    }*/
 }

@@ -34,7 +34,7 @@ use pliron_llvm::types::PointerType;
 use rustc_hash::FxHashMap;
 
 use crate::{
-    ast::{BinOp as AstBinOp, Expr, Function, Stmt},
+    ast::{BinOp as AstBinOp, Expr, Function, Stmt, SwitchCase},
     dialect::{
         BinOp, BinOpKind, CallOp, ConstantOp, DeclOp, IfOp, LoadOp, ReturnOp, StoreOp, StringOp,
         WhileOp, YieldOp,
@@ -268,11 +268,72 @@ fn lower_stmt(
             Ok(false) // WhileOp itself is not a terminator in the outer block
         }
 
+        Stmt::Switch { cond, cases } => {
+            let switch_val = lower_expr(ctx, ins, var_map, cond)?;
+            lower_switch_cases(ctx, ins, var_map, switch_val, cases, 0)?;
+            Ok(false)
+        }
+
         // ── expr; (side-effect expression statement) ──────────────────────
         Stmt::Expr(expr) => {
             lower_expr(ctx, ins, var_map, expr)?;
             Ok(false)
         }
+    }
+}
+
+fn lower_switch_cases(
+    ctx: &mut Context,
+    ins: &mut OpInserter,
+    var_map: &mut VarMap,
+    switch_val: Value,
+    cases: &[SwitchCase],
+    case_idx: usize,
+) -> Result<bool> {
+    if case_idx >= cases.len() {
+        return Ok(false);
+    }
+
+    let case = &cases[case_idx];
+    if let Some(pattern) = &case.pattern {
+        let pattern_val = lower_expr(ctx, ins, var_map, pattern)?;
+        let cmp = BinOp::new(ctx, BinOpKind::Eq, switch_val, pattern_val);
+        let cmp_val = cmp.get_result(ctx);
+        ins.append_op(ctx, &cmp);
+
+        let if_op = IfOp::new(ctx, cmp_val);
+        ins.append_op(ctx, &if_op);
+
+        let then_block = BasicBlock::new(ctx, None, vec![]);
+        then_block.insert_at_front(if_op.then_region(ctx), ctx);
+        let mut then_ins = OpInserter::new_at_block_end(then_block);
+        let mut then_vars = var_map.clone();
+        let then_terminated = lower_stmts(ctx, &mut then_ins, &mut then_vars, &case.body)?;
+        if !then_terminated {
+            let then_yield = YieldOp::new(ctx);
+            then_ins.append_op(ctx, &then_yield);
+        }
+
+        let else_block = BasicBlock::new(ctx, None, vec![]);
+        else_block.insert_at_front(if_op.else_region(ctx), ctx);
+        let mut else_ins = OpInserter::new_at_block_end(else_block);
+        let mut else_vars = var_map.clone();
+        let else_terminated = lower_switch_cases(
+            ctx,
+            &mut else_ins,
+            &mut else_vars,
+            switch_val,
+            cases,
+            case_idx + 1,
+        )?;
+        if !else_terminated {
+            let else_yield = YieldOp::new(ctx);
+            else_ins.append_op(ctx, &else_yield);
+        }
+
+        Ok(false)
+    } else {
+        lower_stmts(ctx, ins, var_map, &case.body)
     }
 }
 
