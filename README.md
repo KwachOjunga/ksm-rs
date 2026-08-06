@@ -14,7 +14,7 @@ The code base exists in the following parts;
   ensure you have atleast the stable version of rust installed and LLVM 22 in your path.
 
 ```sh
-    cargo r --bin klc --input src/bin/klc/examples/fibonacci.kl --arg 7 
+    cargo r --bin klc --features optimize,verbose -- --input src/bin/klc/examples/libc_support.kl --arg 0 -r 
 ```
 
 Or

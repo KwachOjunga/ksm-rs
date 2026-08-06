@@ -11,7 +11,7 @@ name = "repl"
 
 [features]
 verbose = []
-
+optimize = []
 
 [dependencies]
 awint = "0.18.1"

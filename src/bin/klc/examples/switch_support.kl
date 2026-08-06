@@ -1,0 +1,10 @@
+func main(n) {
+    switch (n) {
+        case 1;
+            printf("n is 1");
+            return 0;
+        default;
+            printf("You did not pass in any input");
+            return 0;
+    }
+}
