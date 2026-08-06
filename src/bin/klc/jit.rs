@@ -162,4 +162,26 @@ mod tests {
         let (result, _) = exec_fn(src, "abs", 0).expect("failed to execute main function");
         assert_eq!(result, 0);
     }
+
+    #[test]
+    fn switch_jit() {
+        let src = "
+            func main(x) {
+                switch (x) {
+                    case 1;
+                        return 10;
+                    case 2;
+                        return 20;
+                    default;
+                        return 30;
+                }
+            }
+        ";
+        let (result, _) = exec_fn(src, "main", 1).expect("failed to execute main function");
+        assert_eq!(result, 10);
+        let (result, _) = exec_fn(src, "main", 2).expect("failed to execute main function");
+        assert_eq!(result, 20);
+        let (result, _) = exec_fn(src, "main", 3).expect("failed to execute main function");
+        assert_eq!(result, 30);
+    }
 }
