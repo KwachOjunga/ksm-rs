@@ -333,6 +333,7 @@ fn lower_switch_cases(
 
         Ok(false)
     } else {
+        // -- the rules for one failing to a pass a condition to switch is undefined.
         lower_stmts(ctx, ins, var_map, &case.body)
     }
 }

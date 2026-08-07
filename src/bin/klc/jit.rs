@@ -143,6 +143,29 @@ mod tests {
     }
 
     #[test]
+    fn store_using_switch_jit() {
+        let src = "
+            func main(x) {
+                const result = switch (x) {
+                    case 1;
+                        return 10;
+                    case 2;
+                        return 20;
+                    default;
+                        return 30;
+                }
+                return result;
+            }
+        ";
+        let (result, _) = exec_fn(src, "main", 1).expect("failed to execute main function");
+        assert_eq!(result, 10);
+        let (result, _) = exec_fn(src, "main", 2).expect("failed to execute main function");
+        assert_eq!(result, 20);
+        let (result, _) = exec_fn(src, "main", 3).expect("failed to execute main function");
+        assert_eq!(result, 30);
+    }
+
+    #[test]
     fn if_else_jit() {
         let src = "
             func abs(x) {
