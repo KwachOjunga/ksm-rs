@@ -1,10 +1,10 @@
 //! Translate from AST to IR using the dialect defined in `dialect.rs`.
 //!
 //! The entry point is [`lower_function`], which takes a single [`Function`] AST
-//! node and produces a [`FuncOp`] containing Kaleidoscope dialect ops.
+//! node and produces a [`FuncOp`] containing Kisumu_lang dialect ops.
 //!
 //! # Design
-//! Every Kaleidoscope variable (including function parameters) is backed by a
+//! Every Kisumu_lang variable (including function parameters) is backed by a
 //! [`DeclOp`] memory slot.  Reads become [`LoadOp`]s; writes become
 //! [`StoreOp`]s.  Control flow uses [`IfOp`] (two regions) and [`WhileOp`]
 //! (one region + a condition-pointer slot).  All values are 64-bit signless
@@ -153,22 +153,6 @@ fn lower_stmt(
                 ins.append_op(ctx, &store);
             }
             Ok(false)
-            // alternatively
-            // let (slot_val, elem_ty) = if let Some(init_expr) = init {
-            //             let val = lower_expr(ctx, ins, var_map, init_expr)?;
-            //             let elem_ty = val.get_type(ctx);
-            //             let slot = DeclOp::new(ctx, elem_ty);
-            //             let slot_val = slot.get_result(ctx);
-            //             ins.append_op(ctx, &slot);
-            //             let store = StoreOp::new(ctx, slot_val, val);
-            //             ins.append_op(ctx, &store);
-            //             (slot_val, elem_ty) --> this ret type is not what is expected.
-            //         } else {
-            //             let slot = DeclOp::new(ctx, i64_ty.into());
-            //             let slot_val = slot.get_result(ctx);
-            //             ins.append_op(ctx, &slot);
-            //             (slot_val, i64_ty.into())
-            //         }
         }
 
         // ── name = expr; ──────────────────────────────────────────────────

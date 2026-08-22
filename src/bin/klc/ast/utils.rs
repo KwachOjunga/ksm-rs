@@ -450,31 +450,33 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (optional(ws()), not_followed_by(tok('}')))
-        .with(choice!(
-            attempt(
-                (
-                    string("case"),
-                    ws(),
-                    combine::parser(expr_fn::<Input>),
-                    tok(';'),
-                    many(switch_body_stmt_::<Input>()),
-                )
-                    .map(|(_, _, pattern, _, body)| SwitchCase {
-                        pattern: Some(pattern),
-                        body,
-                    })
-            ),
-            attempt(
-                (
-                    string("default"),
-                    ws(),
-                    tok(';'),
-                    many(switch_body_stmt_::<Input>()),
-                )
-                    .map(|(_, _, _, body)| SwitchCase { pattern: None, body })
+    (optional(ws()), not_followed_by(tok('}'))).with(choice!(
+        attempt(
+            (
+                string("case"),
+                ws(),
+                combine::parser(expr_fn::<Input>),
+                tok(';'),
+                many(switch_body_stmt_::<Input>()),
             )
-        ))
+                .map(|(_, _, pattern, _, body)| SwitchCase {
+                    pattern: Some(pattern),
+                    body,
+                })
+        ),
+        attempt(
+            (
+                string("default"),
+                ws(),
+                tok(';'),
+                many(switch_body_stmt_::<Input>()),
+            )
+                .map(|(_, _, _, body)| SwitchCase {
+                    pattern: None,
+                    body
+                })
+        )
+    ))
 }
 
 fn switch_stmt_<Input>() -> impl Parser<Input, Output = Stmt>
@@ -483,8 +485,16 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     keyword("switch")
-        .and(between(tok('('), tok(')'), combine::parser(expr_fn::<Input>)))
-        .and(between(tok('{'), tok('}'), many(attempt(switch_case_::<Input>()))))
+        .and(between(
+            tok('('),
+            tok(')'),
+            combine::parser(expr_fn::<Input>),
+        ))
+        .and(between(
+            tok('{'),
+            tok('}'),
+            many(attempt(switch_case_::<Input>())),
+        ))
         .map(|((_, cond), cases)| Stmt::Switch { cond, cases })
 }
 

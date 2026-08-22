@@ -452,23 +452,3 @@ impl CallOp {
         op
     }
 }
-
-// ANCHOR: fib_build_pseudocode
-// kisumu_lang pseudocode for the generated function:
-//
-// func main() {
-//   const a = 0;
-//   const b = 1;
-//   const i = 0;
-//   const n = 10;
-//
-//   while i < n {
-//     const tmp = a + b;
-//     a = b;
-//     b = tmp;
-//     i = i + 1;
-//   }
-//
-//   return b;
-// }
-// ANCHOR_END: fib_build_pseudocode
